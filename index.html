@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAMAA PADEL CLUB | Reserva tu Cancha</title>
+    <!-- Carga de la fuente original: Montserrat (moderna, robusta, sans-serif) -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuración personalizada de Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // Colores ajustados para simular el estilo premium oscuro de las capturas
+                        'primary-dark': '#111827', // Fondo y Reservado (gris muy oscuro)
+                        'secondary-dark': '#1F2937', // Fondo de tarjetas y Disponible (gris medio)
+                        'accent': '#14B8A6', // Teal brillante (HOY, Selección, Botones)
+                        'accent-hover': '#0D9488',
+                        // Colores específicos para el aviso de seña
+                        'seña-bg': '#FFFBEA', // Fondo crema muy claro (simulando yellow-50)
+                        'seña-border': '#FDE68A', // Borde amarillo (simulando yellow-300)
+                        'seña-text': '#78350F', // Texto oscuro (simulando amber-900)
+                        'seña-title': '#10B981', // Título verde (simulando emerald-500, o un color que destaque)
+                    },
+                    fontFamily: {
+                        // Usamos Montserrat (robusta y moderna)
+                        sans: ['Montserrat', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Estilos generales para el fondo y la fuente */
+        body {
+            background-color: #030712; /* Fondo muy oscuro */
+            color: #E5E7EB; /* Texto claro */
+            /* Tailwind ahora aplica Montserrat como fuente principal */
+            min-height: 100vh;
+            /* Scroll behavior smooth para el efecto de anclaje de JS */
+            scroll-behavior: smooth;
+        }
+        /* Estilo para un efecto de caja más notorio */
+        .card-glow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+        .card-glow:hover {
+            transform: translateY(-4px);
+        }
+        /* Estilos para el slot de tiempo seleccionado */
+        .time-slot input:checked + .slot-content {
+            background-color: #14B8A6 !important; /* color-accent */
+            border-color: #14B8A6 !important; /* color-accent */
+            color: #111827 !important; /* color-primary-dark */
+            font-weight: bold;
+        }
+        .slot-content {
+             padding: 0.5rem;
+             display: block;
+             text-align: center;
+             height: 100%;
+             user-select: none;
+        }
+        /* Estilo para el Hero Section con imagen de fondo */
+        #hero-section {
+            /* RUTA CORREGIDA: Usamos ruta relativa */
+            background-image: url('./hero_background.jpg');
+            background-size: cover;
+            background-position: center 30%; 
+            position: relative;
+            padding-top: 10rem;
+            padding-bottom: 10rem;
+        }
+        #hero-section::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(3, 7, 18, 0.85); 
+            z-index: 1;
+        }
+        #hero-content {
+            position: relative;
+            z-index: 2;
+        }
+        /* Estilo para el contenedor de días (scroll horizontal) */
+        #days-slider {
+            overflow-x: scroll;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; /* Firefox */
+        }
+        #days-slider::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
+        }
+        /* Estilo para los checkmarks en el banner de beneficios */
+        .benefit-item {
+            display: inline-flex;
+            align-items: center;
+            color: #E5E7EB; /* Texto claro */
+            font-size: 0.875rem; /* text-sm */
+            margin: 0.5rem 1rem;
+        }
+        .benefit-item .icon {
+            color: #14B8A6; /* accent color */
+            margin-right: 0.5rem;
+            width: 1rem;
+            height: 1rem;
+        }
+    </style>
+</head>
+<body class="antialiased flex flex-col">
+ 
+    <!-- Encabezado y Navegación -->
+    <header class="bg-primary-dark shadow-lg sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+            <!-- Logo del Club -->
+            <div class="flex items-center space-x-3">
+                <!-- RUTA CORREGIDA: Usamos ruta relativa -->
+                <img id="logo-img" src="./logo_padel.png"
+                     alt="Logo SAMAA PADEL CLUB"
+                     class="h-10 w-auto rounded-lg"
+                     onerror="this.onerror=null; this.src='https://placehold.co/80x40/14B8A6/FFFFFF?text=SAMAA';">
+                <h1 class="text-xl font-extrabold tracking-tight text-white hidden sm:block">SAMAA PADEL CLUB</h1>
+            </div>
+ 
+            <!-- Navegación Principal -->
+            <nav class="space-x-4">
+                <!-- El orden de los enlaces de navegación es importante, pero el scroll lo maneja JS -->
+                <a href="#instalaciones" class="nav-link text-white hover:text-accent transition duration-150 ease-in-out font-medium">Instalaciones</a>
+                <a href="#reservas" class="nav-link text-white hover:text-accent transition duration-150 ease-in-out font-medium">Reservar</a>
+                <a href="#contacto" class="nav-link text-white hover:text-accent transition duration-150 ease-in-out font-medium">Ubicación</a>
+            </nav>
+        </div>
+    </header>
+ 
+    <!-- Contenido Principal -->
+    <main class="flex-grow">
+ 
+        <!-- 1. SECCIÓN PRINCIPAL (HOME) -->
+        <section id="hero-section" class="border-b-4 border-accent">
+            <div id="hero-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <!-- Texto superior: ABIERTO DE LUNES A SÁBADOS • 14:00 A 23:00 HS (CORREGIDO) -->
+                <div class="bg-accent text-primary-dark text-xs font-bold px-3 py-1 rounded-full inline-block mb-4">ABIERTO DE LUNES A SÁBADOS • 14:00 A 23:00 HS</div>
+ 
+                <!-- Título: Viví la experiencia Samaa Padel Club (DIVIDIDO EN DOS LÍNEAS) -->
+                <h2 class="mt-2 text-5xl sm:text-7xl font-black text-white leading-none">
+                    Viví la experiencia <br class="block"> 
+                    <span class="text-accent">Samaa Padel Club</span>
+                </h2>
+                <!-- Texto de descripción: Tu lugar en Ituzaingó... -->
+                <p class="mt-4 text-lg text-gray-200 max-w-3xl mx-auto">
+                    Tu lugar en Ituzaingó. Canchas premium, ambiente relajado y el mejor nivel de juego del oeste.
+                </p>
+                
+                <!-- Botones de Acción -->
+                <div class="mt-8 flex justify-center space-x-4">
+                    <!-- ID añadido para el selector de JS -->
+                    <a href="#reservas" id="reservar-ahora-btn" class="inline-block bg-accent hover:bg-accent-hover text-primary-dark font-bold py-3 px-6 rounded-lg shadow-xl transition duration-300 transform hover:scale-105">
+                        Reservar Ahora ↓
+                    </a>
+                    <a href="#contacto" class="inline-flex items-center space-x-2 bg-secondary-dark hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg shadow-xl transition duration-300 transform hover:scale-105">
+                         <span>Ver Mapa</span>
+                         <span role="img" aria-label="pin">📍</span>
+                    </a>
+                </div>
+            </div>
+        </section>
+ 
+        <!-- SECCIÓN DE BENEFICIOS (TAL CUAL LA FOTO) -->
+        <div class="bg-primary-dark border-b border-gray-800 py-4 hidden md:block">
+            <div class="max-w-7xl mx-auto px-4 text-center flex flex-wrap justify-around">
+                <!-- Cesped Sintético Pro -->
+                <div class="benefit-item">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>
+                    Césped Sintético Pro
+                </div>
+                <!-- Iluminación LED -->
+                <div class="benefit-item">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>
+                    Iluminación LED
+                </div>
+                <!-- Av. Rivadavia 22800 -->
+                <div class="benefit-item">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>
+                    Av. Rivadavia 22800
+                </div>
+                <!-- Buffet & Bar -->
+                <div class="benefit-item">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 001.05-.143z" clip-rule="evenodd" /></svg>
+                    Buffet & Bar
+                </div>
+            </div>
+        </div>
+        <!-- FIN SECCIÓN DE BENEFICIOS -->
+ 
+        <!-- 2. START OF NEW INSTALACIONES SECTION (AQUÍ ESTÁ LA NUEVA POSICIÓN) -->
+        <section id="instalaciones" class="py-16 bg-gray-900 border-t border-gray-800">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h3 class="text-3xl font-bold text-white mb-10 text-center">Nuestras Instalaciones</h3>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Item 1 - Pista 1 -->
+                    <div class="rounded-xl overflow-hidden shadow-lg card-glow">
+                        <!-- RUTA CORREGIDA: Usamos ruta relativa -->
+                        <img src="./cancha_principal.jpeg" 
+                             alt="FOTO CANCHA 1" class="w-full h-48 object-cover transition duration-300 hover:scale-105"
+                             onerror="this.onerror=null; this.src='https://placehold.co/600x400/1F2937/FFFFFF?text=FOTO+CANCHA+1';">
+                        <div class="p-4 bg-secondary-dark">
+                            <p class="text-lg font-semibold text-white">Cancha Principal</p>
+                            <p class="text-sm text-gray-400">Pasto sintético premium y luces LED.</p>
+                        </div>
+                    </div>
+                    <!-- Item 2 - Pista 2 -->
+                    <div class="rounded-xl overflow-hidden shadow-lg card-glow">
+                        <!-- RUTA CORREGIDA: Usamos ruta relativa -->
+                        <img src="./vista_general.jpg" 
+                             alt="FOTO VISTA GENERAL" class="w-full h-48 object-cover transition duration-300 hover:scale-105"
+                             onerror="this.onerror=null; this.src='https://placehold.co/600x400/1F2937/FFFFFF?text=FOTO+VISTA+GENERAL';">
+                        <div class="p-4 bg-secondary-dark">
+                            <p class="text-lg font-semibold text-white">Vista General</p>
+                            <p class="text-sm text-gray-400">Instalaciones modernas y amplias.</p>
+                        </div>
+                    </div>
+                    <!-- Item 3 - Vestuarios/Bar -->
+                    <div class="rounded-xl overflow-hidden shadow-lg card-glow">
+                        <!-- RUTA CORREGIDA: Usamos ruta relativa -->
+                        <img src="./bar_buffet.jpeg" 
+                             alt="FOTO BAR Y BUFFET" class="w-full h-48 object-cover transition duration-300 hover:scale-105"
+                             onerror="this.onerror=null; this.src='https://placehold.co/600x400/1F2937/FFFFFF?text=FOTO+BAR+Y+BUFFET';">
+                        <div class="p-4 bg-secondary-dark">
+                            <p class="text-lg font-semibold text-white">Buffet & Vestuarios</p>
+                            <p class="text-sm text-gray-400">Espacios de descanso y comodidad.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- END OF NEW INSTALACIONES SECTION -->
+ 
+ 
+        <!-- 3. Sección de Reservas (Core Functionality) -->
+        <section id="reservas" class="py-16 bg-gray-900">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h3 class="text-3xl font-bold text-white mb-8 text-center">Selecciona tu Turno</h3>
+                
+                <div class="bg-secondary-dark p-4 sm:p-6 rounded-xl card-glow border border-gray-700">
+                    
+                    <!-- AVISO DE SEÑA (REEMPLAZA AL CUADRO ROJO) -->
+                    <div class="mb-6 p-4 border rounded-xl flex items-start space-x-3 bg-seña-bg border-seña-border">
+                        <!-- Icono de Billetera/Dinero (simulado con SVG) -->
+                        <span class="text-2xl pt-0.5 text-seña-title">💰</span>
+                        <div>
+                            <p class="text-seña-title text-lg font-bold mb-1">Seña Requerida</p>
+                            <p class="text-seña-text text-sm">
+                                Para asegurar tu cancha en Samaa Padel solicitamos una seña de <span class="font-bold">$10.000 ARS</span>. El resto lo abonas en el club antes de ingresar.
+                            </p>
+                        </div>
+                    </div>
+                    <!-- FIN AVISO DE SEÑA -->
+ 
+                    <!-- 1. SELECCIONADOR DE DÍAS (Slider) -->
+                    <div id="days-slider" class="flex space-x-2 pb-2 mb-4 mx-auto max-w-full">
+                        <!-- Días generados por JS -->
+                    </div>
+                    
+                    <!-- Campo oculto de fecha que se actualizará con el slider -->
+                    <input type="hidden" id="fecha" required>
+ 
+                    <!-- 2. SELECTOR DE CANCHAS (Tabs/Buttons) -->
+                    <div class="flex justify-center space-x-2 mb-8 p-1 bg-primary-dark rounded-full max-w-lg mx-auto">
+                        
+                        <!-- CANCHA 1: ACTUALIZADA A (Aire Libre) -->
+                        <button type="button" data-cancha="cancha1" class="cancha-tab w-full py-2 px-4 rounded-full text-sm font-semibold transition bg-accent text-primary-dark shadow-md">
+                            Cancha 1 (Aire Libre)
+                        </button>
+                        <!-- CANCHA 2: MANTENIDA COMO (Aire Libre) -->
+                        <button type="button" data-cancha="cancha2" class="cancha-tab w-full py-2 px-4 rounded-full text-sm font-semibold transition text-gray-400 hover:bg-gray-700">
+                            Cancha 2 (Aire Libre)
+                        </button>
+                        <!-- Selector real (se oculta y se usa para el envío del formulario) -->
+                        <select id="cancha" name="cancha" class="hidden">
+                            <option value="cancha1" selected>Cancha 1 - Aire Libre</option>
+                            <option value="cancha2">Cancha 2 - Aire Libre</option>
+                            <option value="cancha3">Cancha 3 - Exterior Económica</option>
+                        </select>
+                    </div>
+ 
+                    <!-- 3. HORARIOS DISPONIBLES Y FORMULARIO -->
+                    <h4 class="text-xl font-semibold text-white mb-4 text-center">Horarios Disponibles (Turnos de 1 hora)</h4>
+ 
+                    <form id="reservationForm" class="space-y-6">
+ 
+                        <!-- Grid de Horarios -->
+                        <div id="horariosGrid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                            <p class="col-span-full text-center text-gray-500">
+                                Selecciona una cancha para ver la disponibilidad.
+                            </p>
+                        </div>
+                        
+                        <!-- Leyenda de Horarios -->
+                        <div class="flex justify-center flex-wrap gap-4 text-sm pt-4 border-t border-gray-700">
+                            <div class="flex items-center space-x-1">
+                                <span class="w-3 h-3 rounded-full bg-secondary-dark border border-gray-500"></span>
+                                <span class="text-gray-400">Libre</span>
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <span class="w-3 h-3 rounded-full bg-primary-dark border border-gray-800"></span>
+                                <span class="text-gray-400">Ocupado</span>
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <span class="w-3 h-3 rounded-full bg-accent"></span>
+                                <span class="text-gray-400">Tu Selección</span>
+                            </div>
+                        </div>
+ 
+                        <!-- Campo de Nombre -->
+                        <div>
+                            <label for="nombre" class="block text-sm font-medium text-gray-300 mb-2">Tu Nombre</label>
+                            <input type="text" id="nombre" required placeholder="Ej: Juan Pérez"
+                                class="w-full bg-primary-dark border border-gray-600 rounded-lg p-3 text-white focus:ring-accent focus:border-accent">
+                        </div>
+ 
+                        <!-- Campo de WhatsApp -->
+                        <div>
+                            <label for="whatsapp" class="block text-sm font-medium text-gray-300 mb-2">WhatsApp / Teléfono</label>
+                            <input type="tel" id="whatsapp" required placeholder="Ej: 11 4079-8131"
+                                class="w-full bg-primary-dark border border-gray-600 rounded-lg p-3 text-white focus:ring-accent focus:border-accent">
+                        </div>
+                        
+                        <!-- Aceptación de Pago -->
+                        <div>
+                            <div class="flex items-center">
+                                <input id="aceptarPago" type="checkbox" required
+                                    class="h-5 w-5 text-accent rounded focus:ring-accent border-gray-600 bg-primary-dark">
+                                <label for="aceptarPago" class="ml-3 block text-sm font-medium text-gray-300">
+                                    Acepto pagar ARS 10.000 para confirmar mi reserva
+                                </label>
+                            </div>
+                        </div>
+ 
+                        <!-- Botón de Envío -->
+                        <button type="submit" id="submitButton"
+                            class="w-full bg-accent hover:bg-accent-hover text-primary-dark font-extrabold py-3 rounded-lg shadow-2xl transition duration-200 transform hover:scale-[1.01]">
+                            PAGAR Y CONFIRMAR RESERVA
+                        </button>
+                    </form>
+ 
+                    <!-- Mensaje de Resultado (Modal/Mensaje en línea) -->
+                    <div id="messageBox" class="mt-6 p-4 rounded-lg text-center hidden transition duration-300 ease-in-out" role="alert">
+                        <p id="messageText" class="font-semibold"></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+ 
+        <!-- 4. SECCIÓN DONDE ESTAMOS (MAPA Y CONTACTO) -->
+        <section id="contacto" class="bg-primary-dark border-t border-gray-800">
+            <!-- Usamos h-screen/h-[70vh] para que la sección ocupe un buen espacio vertical, como en el ejemplo del mapa -->
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row h-screen md:h-[70vh] min-h-[500px]">
+                
+                <!-- Panel de Información (Izquierda) - Colores y Estilos de la Captura -->
+                <div class="bg-primary-dark p-8 md:p-12 w-full md:w-1/3 flex flex-col justify-start">
+                    <h2 class="text-3xl font-extrabold text-white mb-8">Dónde Estamos</h2>
+ 
+                    <div class="space-y-8 text-gray-300">
+                        <!-- Dirección -->
+                        <div>
+                            <!-- Icono de ubicación (simulado con SVG) -->
+                            <div class="flex items-center space-x-3 mb-2">
+                                <svg class="w-6 h-6 text-accent" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                                <h4 class="text-xl font-semibold text-white">Dirección</h4>
+                            </div>
+                            <p>Av. Rivadavia 22800</p>
+                            <p>Ituzaingó, Buenos Aires</p>
+                            <!-- El enlace 'Cómo llegar' se mantiene -->
+                            <a href="https://www.google.com/maps/place/Av.+Rivadavia+22800,+B1714+Ituzaing%C3%B3,+Provincia+de+Buenos+Aires/@-34.6622291,-58.6856103,17z/data=!4m6!3m5!1s0x95bcbf7d64b5722d:0x26f952505a9332c0!8m2!3d-34.6632042!4d-58.6822736!16s%2Fg%2F11gr6hgl1r?entry=ttu" target="_blank" class="text-accent text-sm hover:underline mt-2 inline-block">Cómo llegar →</a>
+                        </div>
+ 
+                        <!-- Reservas & Info (Teléfono/WhatsApp) -->
+                        <div>
+                            <!-- Icono de teléfono (simulado con SVG) -->
+                            <div class="flex items-center space-x-3 mb-2">
+                                <svg class="w-6 h-6 text-accent" fill="currentColor" viewBox="0 0 24 24"><path d="M20.01 15.38c-1.23 0-2.45-.2-3.62-.63-.44-.16-.92-.06-1.23.23l-2.22 2.22c-2.82-1.44-5.15-3.78-6.59-6.59l2.22-2.22c.3-.3.39-.78.23-1.23-.43-1.17-.63-2.38-.63-3.62 0-.83-.67-1.5-1.5-1.5H3.5c-.83 0-1.5.67-1.5 1.5 0 9.39 7.61 17 17 17 .83 0 1.5-.67 1.5-1.5v-2.78c0-.83-.67-1.5-1.5-1.5z"/></svg>
+                                <h4 class="text-xl font-semibold text-white">Reservas & Info</h4>
+                            </div>
+                            <p>+54 11 4079-8131</p>
+                            <p class="text-xs text-gray-500">Respondemos WhatsApp</p>
+                        </div>
+ 
+                        <!-- Confirmaciones (Email) -->
+                        <div>
+                            <!-- Icono de email (simulado con SVG) -->
+                            <div class="flex items-center space-x-3 mb-2">
+                                <svg class="w-6 h-6 text-accent" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                                <h4 class="text-xl font-semibold text-white">Confirmaciones</h4>
+                            </div>
+                            <p>reservas@samaapadel.com.ar</p>
+                            <p class="text-xs text-gray-500">Envía tu comprobante aquí</p>
+                        </div>
+                    </div>
+                </div>
+ 
+                <!-- Mapa (Derecha - ¡MAPA INSERTADO!) -->
+                <div class="w-full md:w-2/3 h-96 md:h-full overflow-hidden">
+                    <!-- Modificamos la URL para que sea apta para incrustación (embed) y ajustamos parámetros -->
+                    <iframe 
+                        width="100%" 
+                        height="100%" 
+                        frameborder="0" 
+                        style="border:0" 
+                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3278.4310574768297!2d-58.6856103!3d-34.6622291!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x95bcbf7d64b5722d:0x26f952505a9332c0!2sAv.%20Rivadavia%2022800%2C%20B1714%20Ituzaing%C3%B3%2C%20Provincia%20de%20Buenos%20Aires!5e0!3m2!1sen!2sar!4v1678822000000!5m2!1sen!2sar" 
+                        allowfullscreen="" 
+                        loading="lazy" 
+                        referrerpolicy="no-referrer-when-downgrade">
+                    </iframe>
+                </div>
+            </div>
+        </section>
+ 
+        <!-- Derechos de Autor (Abajo del todo) -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 border-t border-gray-800 text-center">
+            <p class="text-sm text-gray-500">&copy; 2025 SAMAA PADEL CLUB. Todos los derechos reservados.</p>
+        </div>
+    </main>
+ 
+    <script>
+        // JavaScript para la lógica de la reserva y mensajes
+ 
+        const form = document.getElementById('reservationForm');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const submitButton = document.getElementById('submitButton');
+        const horariosGrid = document.getElementById('horariosGrid');
+        const canchaSelect = document.getElementById('cancha');
+        const fechaInput = document.getElementById('fecha');
+        const daysSlider = document.getElementById('days-slider');
+        const canchaTabs = document.querySelectorAll('.cancha-tab');
+        
+        // --- MANEJO DE SCROLL (SOLUCIÓN AL PROBLEMA DE NAVEGACIÓN) ---
+        function handleScrollLink(e) {
+            // Verifica si el enlace apunta a un anclaje interno (#)
+            if (e.target.hash) {
+                const targetElement = document.querySelector(e.target.hash);
+                if (targetElement) {
+                    e.preventDefault();
+                    // Desplazamiento suave al elemento de destino
+                    targetElement.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+        }
+        
+        // Aplica el manejador a todos los enlaces de navegación y el botón "Reservar Ahora"
+        document.querySelectorAll('.nav-link, #reservar-ahora-btn').forEach(link => {
+            link.addEventListener('click', handleScrollLink);
+        });
+        // ------------------------------------------------------------------
+ 
+        // Datos simulados de disponibilidad (en una app real, esto vendría del servidor)
+        // La clave es la cancha + fecha.
+        const mockAvailability = {
+            // Ejemplo de disponibilidad (Horarios LIBRES)
+            // Horarios de 14:00 a 23:00 hs (turnos de 1 hora)
+            'cancha1-2025-12-02': ['17:00', '21:00'], 
+            'cancha2-2025-12-02': ['14:00', '19:00', '22:00'],
+            'cancha3-2025-12-02': ['17:00', '20:00', '23:00'],
+            'cancha1-2025-12-03': ['14:00', '15:00', '16:00'], 
+            'cancha2-2025-12-03': ['18:00', '19:00', '20:00'],
+            'cancha3-2025-12-03': ['21:00', '22:00', '23:00'],
+        };
+        
+        // Horarios base (desde las 14:00 hasta las 23:00, CON INTERVALOS DE 1 HORA)
+        const allHours = [];
+        // Se detiene en 22:00 porque el turno es de 1 hora, y 23:00 sería el final de la hora
+        for (let h = 14; h < 23; h++) { 
+            allHours.push(`${String(h).padStart(2, '0')}:00`);
+        }
+        // Se añade 23:00 como un posible inicio de turno si la cancha cierra a las 00:00. 
+        // Si el club cierra estrictamente a las 23:00, se debe limitar el bucle a 'h < 22'.
+        // Mantenemos hasta 23:00 para cubrir el rango completo si fuera posible.
+        // Si quieres que el último turno sea 22:00 (termina a las 23:00), cambia 'h < 23' por 'h < 22'
+ 
+        // Función para mostrar un mensaje de estado
+        function showMessage(text, isSuccess) {
+            messageText.textContent = text;
+            messageBox.classList.remove('hidden', 'bg-red-900', 'bg-green-900', 'border-red-600', 'border-green-600');
+            messageBox.classList.add(isSuccess ? 'bg-green-900' : 'bg-red-900', 'border', isSuccess ? 'border-green-600' : 'border-red-600');
+            
+            // Ocultar después de 5 segundos
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 5000);
+        }
+ 
+        // Función para generar y mostrar los horarios disponibles (diseño de bloques de 2 líneas)
+        function renderHorarios() {
+            const cancha = canchaSelect.value;
+            const fecha = fechaInput.value;
+            
+            // Si no hay cancha o fecha seleccionada, mostrar mensaje
+            if (!cancha || !fecha) {
+                horariosGrid.innerHTML = `<p class="col-span-full text-center text-gray-500">
+                    Selecciona una cancha y una fecha para ver la disponibilidad.
+                </p>`;
+                return;
+            }
+            
+            // Deseleccionar cualquier horario previamente seleccionado
+            try {
+                // Esto podría fallar si aún no existen los radios, por eso el try/catch
+                document.querySelectorAll('input[name="horario"]').forEach(radio => radio.checked = false);
+            } catch (e) {
+                // console.error(e); 
+            }
+ 
+ 
+            const key = `${cancha}-${fecha}`;
+            // Filtramos allHours para ver cuáles están libres en mockAvailability (simulación)
+            const availableTimes = mockAvailability[key] || allHours; 
+            
+            let html = '';
+ 
+            // Usamos la lista de todas las horas (solo por hora) para generar los botones
+            allHours.forEach(time => {
+                // Si la hora actual de allHours no está en la lista de mockAvailability, se considera ocupada.
+                // En una app real, la lista de `availableTimes` debe ser la lista de turnos DISPONIBLES.
+                const isAvailable = availableTimes.includes(time);
+                
+                let containerClasses;
+                let inputDisabled = isAvailable ? '' : 'disabled';
+                // Mostramos el rango de 1 hora
+                const endTime = (parseInt(time.split(':')[0]) + 1) + time.substring(2); 
+                let statusText = isAvailable ? 'Libre' : 'Ocupado';
+                let timeColor;
+                let statusColor;
+ 
+                if (isAvailable) {
+                    // Libre: Fondo gris medio (activo) y texto brillante (secondary-dark)
+                    containerClasses = 'bg-secondary-dark border border-gray-700 cursor-pointer hover:bg-gray-700';
+                    timeColor = 'text-white';
+                    statusColor = 'text-gray-400';
+                } else {
+                    // Ocupado: Fondo muy oscuro (dimmed) y texto atenuado (primary-dark)
+                    containerClasses = 'bg-primary-dark border border-gray-800 cursor-not-allowed opacity-70';
+                    timeColor = 'text-gray-500';
+                    statusColor = 'text-gray-600';
+                }
+ 
+                html += `
+                    <label class="time-slot block">
+                        <input type="radio" name="horario" value="${time}" class="hidden" ${inputDisabled}>
+                        <span class="slot-content ${containerClasses} rounded-lg transition duration-150 ease-in-out">
+                            <span class="text-xl font-bold ${timeColor} block">${time}</span>
+                            <span class="text-xs ${statusColor} block">${statusText}</span>
+                        </span>
+                    </label>
+                `;
+            });
+ 
+            // Ajustamos el tamaño de la cuadrícula si es necesario, pero mantenemos 5 columnas
+            // Si hay pocas horas, se verán centradas y grandes en la cuadrícula 
+            horariosGrid.innerHTML = html;
+        }
+        
+        // --- Funciones para el Slider de Días ---
+ 
+        // Helper para obtener el nombre del día
+        function getDayName(date, index) {
+            const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            if (index === 0) return 'HOY';
+            return days[date.getDay()];
+        }
+        
+        // Renderiza los próximos 15 días (CORREGIDO)
+        function renderDaysSlider(selectedDateString) {
+            daysSlider.innerHTML = ''; // Limpiar
+            const today = new Date();
+            let selectedDateFound = false;
+ 
+            for (let i = 0; i < 15; i++) { // CAMBIO: AHORA MUESTRA 15 DÍAS
+                const day = new Date(today);
+                day.setDate(today.getDate() + i);
+                
+                const dayName = getDayName(day, i);
+                const dayNum = day.getDate();
+                const dayDateString = day.toISOString().split('T')[0];
+                
+                const isSelected = dayDateString === selectedDateString;
+                
+                let dayClass = 'text-white bg-primary-dark hover:bg-gray-700';
+                
+                // Estilos para HOY y Selección (similar a la imagen)
+                if (i === 0) {
+                    dayClass = 'text-primary-dark bg-accent font-bold shadow-lg';
+                } else if (isSelected) {
+                    dayClass = 'text-white bg-gray-600 border border-accent'; // Seleccionado pero no HOY
+                }
+ 
+                const dayElement = document.createElement('div');
+                dayElement.className = `inline-block p-2 text-center rounded-xl cursor-pointer transition duration-150 ease-in-out ${dayClass}`;
+                dayElement.dataset.date = dayDateString;
+                dayElement.dataset.index = i;
+ 
+                dayElement.innerHTML = `
+                    <span class="text-sm block leading-none">${dayName}</span>
+                    <span class="text-2xl font-extrabold block leading-none">${dayNum}</span>
+                `;
+                
+                dayElement.addEventListener('click', () => selectDay(dayDateString));
+                daysSlider.appendChild(dayElement);
+ 
+                if (isSelected) selectedDateFound = true;
+            }
+ 
+            // Si la fecha seleccionada inicial no fue renderizada, seleccionar el día 0
+            if (!selectedDateFound) {
+                 selectDay(today.toISOString().split('T')[0]);
+            }
+        }
+ 
+        // Selecciona un día, actualiza el input oculto y vuelve a renderizar
+        function selectDay(dateString) {
+            fechaInput.value = dateString;
+            
+            // Remover la clase de selección de todos los días y aplicar estilos base
+            document.querySelectorAll('#days-slider > div').forEach(div => {
+                const dayIndex = parseInt(div.dataset.index);
+                div.classList.remove('bg-gray-600', 'border', 'border-accent');
+                if (dayIndex === 0) {
+                     div.classList.add('text-primary-dark', 'bg-accent');
+                     div.classList.remove('text-white', 'bg-primary-dark'); // Limpiar estilos alternativos
+                } else {
+                     div.classList.add('bg-primary-dark', 'text-white');
+                     div.classList.remove('text-primary-dark', 'bg-accent'); // Limpiar estilos alternativos
+                }
+            });
+ 
+            // Aplicar clase de selección al día clickeado
+            const selectedDiv = document.querySelector(`[data-date="${dateString}"]`);
+            if (selectedDiv && selectedDiv.dataset.index !== '0') {
+                 selectedDiv.classList.remove('bg-primary-dark');
+                 selectedDiv.classList.add('bg-gray-600', 'border', 'border-accent');
+            }
+ 
+            renderHorarios();
+        }
+ 
+        // --- Lógica de Eventos y Manejo de Canchas ---
+ 
+        // Cambiar la cancha seleccionada
+        function selectCancha(selectedCancha) {
+            canchaTabs.forEach(tab => {
+                const isSelected = tab.dataset.cancha === selectedCancha;
+                
+                // Alternar estilos visuales
+                if (isSelected) {
+                    tab.classList.add('bg-accent', 'text-primary-dark');
+                    tab.classList.remove('text-gray-400', 'hover:bg-gray-700');
+                } else {
+                    tab.classList.remove('bg-accent', 'text-primary-dark');
+                    tab.classList.add('text-gray-400', 'hover:bg-gray-700');
+                }
+ 
+                // Sincronizar con el <select> oculto
+                if (isSelected) {
+                    canchaSelect.value = selectedCancha;
+                }
+            });
+            
+            // Recargar horarios con la nueva cancha
+            renderHorarios();
+        }
+ 
+        // Escuchadores de pestañas de cancha
+        canchaTabs.forEach(tab => {
+            tab.addEventListener('click', (e) => selectCancha(e.currentTarget.dataset.cancha));
+        });
+ 
+        // Simulación de envío del formulario
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+ 
+            // Deshabilitar botón para evitar doble envío
+            submitButton.disabled = true;
+            submitButton.textContent = 'Procesando...';
+            submitButton.classList.remove('bg-accent', 'hover:bg-accent-hover');
+            submitButton.classList.add('bg-gray-600', 'cursor-not-allowed');
+ 
+            const isPaymentAccepted = document.getElementById('aceptarPago').checked;
+            const selectedHorario = form.elements['horario'].value; 
+ 
+            const formData = {
+                fecha: fechaInput.value,
+                cancha: canchaSelect.value,
+                horario: selectedHorario, 
+                nombre: document.getElementById('nombre').value,
+                whatsapp: document.getElementById('whatsapp').value,
+                pagoAceptado: isPaymentAccepted 
+            };
+ 
+            setTimeout(() => {
+                // Validación: verificar que todos los campos y la aceptación de pago estén completos
+                if (!formData.fecha || !formData.cancha || !formData.horario || !formData.nombre || !formData.whatsapp) {
+                    showMessage('Error: Por favor, selecciona un horario y completa todos los campos.', false);
+                } else if (!formData.pagoAceptado) {
+                    showMessage('Error: Debes aceptar el pago de ARS 10.000 para confirmar la reserva.', false);
+                } else {
+                    // Simulación de éxito (asumiendo que el pago se realizó con éxito)
+                    const successMessage = `¡Pago y Reserva confirmados, ${formData.nombre}! \nCosto: ARS 10.000. Cancha: ${formData.cancha} - Fecha: ${formData.fecha} - Hora: ${formData.horario} hs. Te enviaremos un WhatsApp a ${formData.whatsapp} con el comprobante.`;
+                    showMessage(successMessage, true);
+                    form.reset(); // Limpiar formulario tras éxito
+                    
+                    // Asegurar que se vuelve a cargar la disponibilidad
+                    renderHorarios();
+                }
+ 
+                // Habilitar botón de nuevo
+                submitButton.disabled = false;
+                submitButton.textContent = 'PAGAR Y CONFIRMAR RESERVA';
+                submitButton.classList.remove('bg-gray-600', 'cursor-not-allowed');
+                submitButton.classList.add('bg-accent', 'hover:bg-accent-hover');
+ 
+            }, 1500); // 1.5 segundos de simulación de carga
+        });
+ 
+        // Inicialización al cargar la ventana
+        window.onload = function() {
+            // Establecer la fecha de hoy por defecto
+            const todayString = (new Date()).toISOString().split('T')[0];
+            fechaInput.value = todayString;
+ 
+            // 1. Renderizar el slider de días y seleccionar el día de hoy
+            renderDaysSlider(todayString);
+            
+            // 2. Seleccionar la cancha inicial y cargar los horarios
+            selectCancha('cancha1');
+        };
+    </script>
+</body>
+</html>
