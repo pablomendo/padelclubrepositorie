@@ -37,8 +37,8 @@
     <style>
         /* Estilos generales para el fondo y la fuente */
         body {
-            background-color: '#030712'; /* Fondo muy oscuro */
-            color: '#E5E7EB'; /* Texto claro */
+            background-color: #030712; /* Fondo muy oscuro */
+            color: #E5E7EB; /* Texto claro */
             /* Tailwind ahora aplica Montserrat como fuente principal */
             min-height: 100vh;
             /* Scroll behavior smooth para el efecto de anclaje de JS */
@@ -117,6 +117,20 @@
             margin-right: 0.5rem;
             width: 1rem;
             height: 1rem;
+        }
+        /* Loader styles */
+        .loader {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #14B8A6; /* Accent color */
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -305,9 +319,10 @@
 
                         <!-- Grid de Horarios -->
                         <div id="horariosGrid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                            <p class="col-span-full text-center text-gray-500">
-                                Selecciona una cancha para ver la disponibilidad.
-                            </p>
+                            <div class="col-span-full text-center p-4">
+                                <div id="loading-spinner" class="loader"></div>
+                                <p id="horario-message" class="text-gray-500 mt-2">Cargando disponibilidad...</p>
+                            </div>
                         </div>
                         
                         <!-- Leyenda de Horarios -->
@@ -446,8 +461,42 @@
         </div>
     </main>
 
-    <script>
-        // JavaScript para la lógica de la reserva y mensajes
+    <script type="module">
+        // Importaciones de Firebase SDK (requeridas para la persistencia compartida)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, arrayUnion, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Configuración de Firebase (Se asumen variables globales disponibles en el entorno)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        
+        let app, db, auth;
+        let isAuthReady = false;
+
+        // Inicialización de Firebase
+        try {
+            setLogLevel('Debug');
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            // Autenticación Anónima (Necesaria para leer/escribir en Firestore)
+            signInAnonymously(auth).then(() => {
+                isAuthReady = true;
+                // Re-renderizar con el DB listo (Llamada inicial a renderHorarios)
+                const todayString = (new Date()).toISOString().split('T')[0];
+                renderDaysSlider(todayString);
+                selectCancha('cancha1');
+            }).catch(error => {
+                console.error("Error al iniciar sesión anónimamente:", error);
+                document.getElementById('horario-message').textContent = "Error de conexión con la base de datos.";
+            });
+
+        } catch (error) {
+            console.error("Error al inicializar Firebase:", error);
+        }
 
         const form = document.getElementById('reservationForm');
         const messageBox = document.getElementById('messageBox');
@@ -460,9 +509,17 @@
         const canchaTabs = document.querySelectorAll('.cancha-tab');
         
         // --- ESTADO GLOBAL PARA LA SELECCIÓN MÚLTIPLE ---
-        let selectedTimeSlots = []; // Almacena los strings de los horarios seleccionados ("10:00", "10:30", etc.)
-        const PRECIO_POR_HORA = 10000; // $10.000 ARS
-        const CLUB_WHATSAPP_NUMBER = "5491140798131"; // Número de WhatsApp del club (sin el signo + para la URL)
+        let selectedTimeSlots = []; 
+        const PRECIO_POR_HORA = 10000; 
+        const CLUB_WHATSAPP_NUMBER = "5491140798131"; 
+
+        // --- FIREBASE FIRESTORE CONFIG ---
+        // Ruta donde se guardarán los turnos (Colección pública)
+        const getSlotsDocRef = (cancha, fecha) => {
+            const docId = `${cancha}-${fecha}`;
+            return doc(db, `artifacts/${appId}/public/data/samaa_padel_slots`, docId);
+        };
+        // ---------------------------------
 
         // --- MANEJO DE SCROLL ---
         function handleScrollLink(e) {
@@ -480,7 +537,7 @@
         });
         // ------------------------
 
-        // Datos simulados de disponibilidad (Bloques que YA ESTÁN ocupados por defecto, como reservas antiguas)
+        // Datos simulados de disponibilidad (Bloques ocupados por defecto, combinados con Firestore)
         const mockAvailability = {
             'cancha1-2025-12-02': ['17:00', '17:30', '21:00'], 
             'cancha2-2025-12-02': ['10:00', '10:30', '19:00', '22:00'],
@@ -494,16 +551,14 @@
         function generateAll30MinSlots() {
             const slots = [];
             const startHour = 10;
-            const endHour = 24; // Representa 00:00 (medianoche)
+            const endHour = 24; 
             
             for (let h = startHour; h < endHour; h++) {
                 slots.push(`${String(h).padStart(2, '0')}:00`);
-                // Agregamos :30 si no es la última hora (23:00) y si es 23:00, el último bloque es 23:30
                 if (h < 23) {
                     slots.push(`${String(h).padStart(2, '0')}:30`);
                 }
             }
-            // Agregamos 23:30
             slots.push('23:30');
             return slots; 
         }
@@ -513,13 +568,11 @@
         // Función para actualizar el resumen de pago
         function updatePaymentSummary() {
             const numBlocks = selectedTimeSlots.length;
-            // La reserva se mide en bloques de 30 minutos, por lo tanto, 2 bloques equivalen a 1 hora.
             const costoTotal = (numBlocks / 2) * PRECIO_POR_HORA; 
             
             document.getElementById('numBloques').textContent = numBlocks;
             document.getElementById('costoTotal').textContent = `$${costoTotal.toLocaleString('es-AR')} ARS`;
 
-            // Habilitar el botón de envío si hay al menos un bloque seleccionado
             submitButton.disabled = numBlocks === 0;
         }
 
@@ -528,17 +581,14 @@
             const slotElement = e.currentTarget;
             const time = slotElement.dataset.time;
             
-            // Si el slot está deshabilitado, ignorar el click
             if (slotElement.hasAttribute('disabled')) return;
             
             const index = selectedTimeSlots.indexOf(time);
             
             if (index > -1) {
-                // Deseleccionar
                 selectedTimeSlots.splice(index, 1);
                 slotElement.classList.remove('selected');
             } else {
-                // Seleccionar
                 selectedTimeSlots.push(time);
                 slotElement.classList.add('selected');
                 selectedTimeSlots.sort();
@@ -582,37 +632,56 @@
             }, 5000);
         }
 
-        // Función para generar y mostrar los horarios disponibles
-        function renderHorarios() {
+        // Función para generar y mostrar los horarios disponibles (AHORA CON FIREBASE)
+        async function renderHorarios() {
+            if (!isAuthReady) {
+                 document.getElementById('horario-message').textContent = "Conectando al servidor...";
+                 return;
+            }
+            
             const cancha = canchaSelect.value;
             const fecha = fechaInput.value;
             
-            // Limpiar selección previa (IMPORTANTE)
             selectedTimeSlots = [];
             updatePaymentSummary();
+            
+            // Mostrar spinner de carga
+            horariosGrid.innerHTML = `
+                <div class="col-span-full text-center p-4">
+                    <div class="loader"></div>
+                    <p id="horario-message" class="text-gray-500 mt-2">Cargando disponibilidad...</p>
+                </div>
+            `;
 
             if (!cancha || !fecha) {
-                horariosGrid.innerHTML = `<p class="col-span-full text-center text-gray-500">
-                    Selecciona una cancha y una fecha para ver la disponibilidad.
-                </p>`;
+                document.getElementById('horario-message').textContent = "Selecciona una cancha y una fecha.";
                 return;
             }
             
             const key = `${cancha}-${fecha}`;
             
-            // 1. CARGA LA DISPONIBILIDAD MOCKEADA INICIAL (Ocupados por defecto)
+            // --- PASO 1: OBTENER DATOS DE FIRESTORE ---
+            let firestoreOccupied = [];
+            try {
+                const docRef = getSlotsDocRef(cancha, fecha);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists() && docSnap.data().occupiedSlots) {
+                    firestoreOccupied = docSnap.data().occupiedSlots;
+                }
+            } catch (error) {
+                console.error("Error al obtener datos de Firestore:", error);
+                document.getElementById('horario-message').textContent = "Error al cargar la disponibilidad.";
+                return;
+            }
+            
+            // 2. COMBINAR DATOS (Mock inicial + Firestore)
             const mockOccupiedTimes = mockAvailability[key] || []; 
-            
-            // 2. CARGA LOS SLOTS OCUPADOS DE LOCAL STORAGE (PERSISTENCIA SIMULADA)
-            const localOccupied = JSON.parse(localStorage.getItem(key) || '[]');
-            
-            // COMBINA AMBOS LISTADOS DE SLOTS OCUPADOS
-            const occupiedTimes = [...new Set([...mockOccupiedTimes, ...localOccupied])]; 
+            const occupiedTimes = [...new Set([...mockOccupiedTimes, ...firestoreOccupied])]; 
             
             let html = '';
             
             allHours30Min.forEach(time => {
-                // Si la hora está en la lista de ocupados, isAvailable = false
                 const isAvailable = !occupiedTimes.includes(time);
                 
                 let containerClasses;
@@ -622,18 +691,10 @@
                 let timeColor;
                 let statusColor;
 
-                // Revisar si el slot ya estaba seleccionado (si cambiamos de cancha/día, se borra)
-                const isCurrentlySelected = selectedTimeSlots.includes(time);
-
                 if (isAvailable) {
                     containerClasses = 'bg-secondary-dark border border-gray-700 cursor-pointer hover:bg-gray-700';
                     timeColor = 'text-white';
                     statusColor = 'text-gray-400';
-                    if (isCurrentlySelected) {
-                        // Esto solo debería pasar si se fuerza un renderizado sin limpiar el selectedTimeSlots,
-                        // pero lo incluimos por robustez
-                        containerClasses += ' selected';
-                    }
                 } else {
                     containerClasses = 'bg-primary-dark border border-gray-800 cursor-not-allowed opacity-70';
                     timeColor = 'text-gray-500';
@@ -653,15 +714,20 @@
             horariosGrid.innerHTML = html;
             
             // Adjuntar listener de click a los nuevos slots disponibles
-            document.querySelectorAll('.time-slot:not([disabled])').forEach(slot => {
+            const availableSlots = document.querySelectorAll('.time-slot:not([disabled])');
+            
+            availableSlots.forEach(slot => {
                 slot.addEventListener('click', handleSlotClick);
             });
             
             // Si no hay turnos disponibles para el día, mostrar mensaje de ocupado
-            if (document.querySelectorAll('.time-slot:not([disabled])').length === 0 && allHours30Min.length > 0) {
+            if (availableSlots.length === 0 && allHours30Min.length > 0) {
                  horariosGrid.innerHTML = `<p class="col-span-full text-center text-red-400 font-semibold p-4 bg-primary-dark rounded-lg">
                      ¡ATENCIÓN! No quedan bloques disponibles en esta cancha para la fecha seleccionada.
                  </p>`;
+            } else if (availableSlots.length > 0) {
+                // Borrar mensaje de carga si hay slots
+                document.getElementById('horario-message').textContent = "";
             }
         }
         
@@ -767,8 +833,13 @@
         });
 
         // Simulación de envío del formulario
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', async function(e) {
             e.preventDefault();
+
+            if (!isAuthReady) {
+                showSimpleMessage('Error: La conexión con la base de datos aún no está lista. Inténtalo de nuevo.', false);
+                return;
+            }
 
             if (selectedTimeSlots.length === 0) {
                 showSimpleMessage('Error: Debes seleccionar al menos un bloque de 30 minutos.', false);
@@ -794,20 +865,23 @@
             const totalCosto = (selectedTimeSlots.length / 2) * PRECIO_POR_HORA;
 
 
-            setTimeout(() => {
-                // Validación de campos
-                if (!formData.fecha || !formData.cancha || !formData.nombre || !formData.whatsapp) {
-                    showSimpleMessage('Error: Por favor, completa todos los campos requeridos.', false);
-                } else if (!formData.pagoAceptado) {
-                    showSimpleMessage('Error: Debes aceptar la seña de ARS 10.000 para confirmar la reserva.', false);
-                } else {
-                    // SIMULACIÓN DE PERSISTENCIA: Guarda los nuevos slots ocupados
-                    const key = `${formData.cancha}-${formData.fecha}`;
-                    const currentOccupied = JSON.parse(localStorage.getItem(key) || '[]');
-                    const newOccupied = [...new Set([...currentOccupied, ...formData.horarios])];
-                    localStorage.setItem(key, JSON.stringify(newOccupied));
+            if (!formData.fecha || !formData.cancha || !formData.nombre || !formData.whatsapp) {
+                showSimpleMessage('Error: Por favor, completa todos los campos requeridos.', false);
+            } else if (!formData.pagoAceptado) {
+                showSimpleMessage('Error: Debes aceptar la seña de ARS 10.000 para confirmar la reserva.', false);
+            } else {
+                
+                try {
+                    // --- PASO CLAVE: GUARDAR EN FIRESTORE ---
+                    const docRef = getSlotsDocRef(formData.cancha, formData.fecha);
+                    
+                    // Usa setDoc con merge: true y arrayUnion para añadir los nuevos slots
+                    await setDoc(docRef, { 
+                        occupiedSlots: arrayUnion(...formData.horarios),
+                        lastUpdated: new Date()
+                    }, { merge: true });
 
-                    // PREPARA MENSAJE WHATSAPP (CORREGIDO)
+                    // PREPARA MENSAJE WHATSAPP (CORRECTO Y CODIFICADO)
                     const sortedSlots = formData.horarios.sort();
                     const slotsList = sortedSlots.join(', ');
                     
@@ -823,7 +897,6 @@ Detalles:
 
 Adjunto el comprobante de la seña de ARS 10.000.`;
 
-                    // Usamos encodeURIComponent para asegurar que el mensaje se pase correctamente por la URL
                     const encodedMessage = encodeURIComponent(waMessageText);
                     const waLink = `https://wa.me/${CLUB_WHATSAPP_NUMBER}?text=${encodedMessage}`;
 
@@ -831,24 +904,29 @@ Adjunto el comprobante de la seña de ARS 10.000.`;
                     showMessageWithWhatsApp(formData.nombre, waLink);
                     form.reset(); 
                     
-                    // Recarga la grilla para que se muestren como ocupados (CORREGIDO)
+                    // Recarga la grilla para que se muestren como ocupados para todos los usuarios
                     renderHorarios();
-                }
 
-                // Habilitar botón de nuevo
-                submitButton.disabled = false;
-                submitButton.textContent = 'PAGAR Y CONFIRMAR RESERVA';
-                submitButton.classList.remove('bg-gray-600', 'cursor-not-allowed');
-                submitButton.classList.add('bg-accent', 'hover:bg-accent-hover');
-                updatePaymentSummary(); // Reiniciar a 0 bloques
-            }, 1500);
+                } catch (error) {
+                    console.error("Error al guardar en Firestore:", error);
+                    showSimpleMessage('Error al guardar la reserva. Intenta de nuevo.', false);
+                }
+            }
+
+            // Habilitar botón de nuevo
+            submitButton.disabled = false;
+            submitButton.textContent = 'PAGAR Y CONFIRMAR RESERVA';
+            submitButton.classList.remove('bg-gray-600', 'cursor-not-allowed');
+            submitButton.classList.add('bg-accent', 'hover:bg-accent-hover');
+            updatePaymentSummary(); // Reiniciar a 0 bloques
         });
 
-        // Inicialización al cargar la ventana
+        // Llamada inicial solo para días y cancha. renderHorarios se llama después de Auth
         window.onload = function() {
+            // Si la autenticación falla, renderDaysSlider y selectCancha no se habrán llamado
+            // Los llamamos aquí solo para cargar la interfaz en modo offline si es necesario,
+            // pero la lógica de horarios se ejecutará solo después de que isAuthReady sea true.
             const todayString = (new Date()).toISOString().split('T')[0];
-            fechaInput.value = todayString;
-
             renderDaysSlider(todayString);
             selectCancha('cancha1');
         };
