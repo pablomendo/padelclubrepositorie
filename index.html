@@ -320,7 +320,6 @@
                         <!-- Grid de Horarios -->
                         <div id="horariosGrid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                             <div class="col-span-full text-center p-4">
-                                <div id="loading-spinner" class="loader"></div>
                                 <p id="horario-message" class="text-gray-500 mt-2">Cargando disponibilidad...</p>
                             </div>
                         </div>
@@ -462,7 +461,8 @@
     </main>
 
     <script type="module">
-        // Importaciones de Firebase SDK (requeridas para la persistencia compartida)
+        // Importaciones de Firebase SDK (Solo para intentar la persistencia compartida)
+        // Se carga con 'try-catch' para que el fallo no bloquee la interfaz
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -474,7 +474,7 @@
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
         let app, db, auth;
-        let isAuthReady = false;
+        let isAuthReady = false; // Estado para saber si la conexión a Firebase es exitosa
         
         // --- CONSTANTES DE LA APLICACIÓN ---
         let selectedTimeSlots = []; 
@@ -500,6 +500,7 @@
         const fechaInput = document.getElementById('fecha');
         const daysSlider = document.getElementById('days-slider');
         const canchaTabs = document.querySelectorAll('.cancha-tab');
+        const horarioMessage = document.getElementById('horario-message'); // Mensaje en la grilla
 
         // --- FIREBASE FIRESTORE CONFIG ---
         const getSlotsDocRef = (cancha, fecha) => {
@@ -508,19 +509,19 @@
             return doc(db, `artifacts/${appId}/public/data/samaa_padel_slots`, docId);
         };
 
-        // --- FUNCIÓN DE AUTENTICACIÓN (INICIO) ---
-        async function authenticateAndInitialize() {
+        // --- FUNCIÓN DE AUTENTICACIÓN (EN SEGUNDO PLANO) ---
+        async function authenticateAndInitializeDB() {
             try {
-                // Solo inicializar si firebaseConfig tiene la estructura básica para evitar el error de projectId
-                if (!firebaseConfig.projectId && !firebaseConfig.apiKey) {
-                    throw new Error("Missing Firebase configuration (no projectId/apiKey). Running in local mode.");
+                // Validación estricta de configuración
+                if (!firebaseConfig || !firebaseConfig.apiKey || Object.keys(firebaseConfig).length === 0) {
+                    throw new Error("Missing/Invalid Firebase configuration. Running in local mode.");
                 }
                 
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // Intento de autenticación
+                // Intento de autenticación (usa token si existe, sino anónimo)
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
@@ -528,24 +529,21 @@
                 }
                 
                 isAuthReady = true;
-                console.log("Firebase conectado y autenticado.");
+                console.log("Firebase conectado y autenticado. Persistencia compartida ACTIVA.");
+                
+                // Si la conexión es exitosa, disparamos una recarga de horarios para cargar la data compartida.
+                renderHorarios();
 
             } catch (error) {
-                // Si la conexión falla, cambiamos a modo local
-                console.error("Firebase falló. Cambiando a modo de persistencia local (localStorage).", error);
+                // Si la conexión falla (incluyendo el error de projectId), la app sigue funcionando en modo local.
+                console.error("Firebase falló. Persistencia compartida INACTIVA. Usando localStorage.", error);
                 isAuthReady = false; 
-                // Advertir al usuario, pero no bloquear la carga de horarios
-                const message = document.getElementById('horario-message');
-                if (message) {
-                    message.innerHTML = "⚠️ **Modo Local:** No se pudo conectar a la base de datos compartida. Las reservas no serán visibles para otros usuarios.";
-                    message.classList.add('text-yellow-400');
+                if (horarioMessage) {
+                    horarioMessage.innerHTML = "⚠️ **Modo Local:** No se pudo conectar a la base de datos compartida. Las reservas no serán visibles para otros usuarios.";
+                    horarioMessage.classList.remove('text-gray-500');
+                    horarioMessage.classList.add('text-yellow-400');
                 }
             }
-            
-            // Siempre iniciamos la UI aquí, independientemente de si Firebase está listo o no.
-            const todayString = (new Date()).toISOString().split('T')[0];
-            renderDaysSlider(todayString);
-            selectCancha('cancha1');
         }
         
         // --- Funciones auxiliares ---
@@ -635,17 +633,14 @@
             
             const cancha = canchaSelect.value;
             const fecha = fechaInput.value;
-            const horarioMessage = document.getElementById('horario-message');
             
             selectedTimeSlots = [];
             updatePaymentSummary();
             
-            horariosGrid.innerHTML = `
-                <div class="col-span-full text-center p-4">
-                    <div class="loader"></div>
-                    <p id="horario-message" class="text-gray-500 mt-2">Cargando disponibilidad...</p>
-                </div>
-            `;
+            // Mostrar un mensaje inicial o spinner solo si la UI no está cargada
+            if (!horariosGrid.hasChildNodes() || horariosGrid.textContent.includes("Selecciona una cancha y una fecha")) {
+                 horariosGrid.innerHTML = `<div class="col-span-full text-center p-4"><p id="horario-message" class="text-gray-500 mt-2">Cargando disponibilidad...</p></div>`;
+            }
 
             if (!cancha || !fecha) {
                 horariosGrid.innerHTML = `<p class="col-span-full text-center text-gray-500">Selecciona una cancha y una fecha.</p>`;
@@ -665,12 +660,11 @@
                         occupiedTimes = [...new Set([...occupiedTimes, ...docSnap.data().occupiedSlots])];
                     }
                 } catch (error) {
-                    console.error("Error al obtener datos de Firestore. Volviendo a modo local completo:", error);
-                    isAuthReady = false; // Deshabilitar futuros intentos de DB en esta sesión
-                    if (horarioMessage) {
-                       horarioMessage.innerHTML = "⚠️ **Modo Local:** Falló la carga compartida. Las reservas no serán visibles para otros usuarios.";
-                       horarioMessage.classList.add('text-yellow-400');
-                    }
+                    console.error("Error al obtener datos de Firestore. Usando modo local completo.", error);
+                    // No cambiamos isAuthReady aquí, solo reportamos el error de lectura.
+                    // Fallback a LocalStorage para lectura.
+                    const localOccupied = JSON.parse(localStorage.getItem(`local_reserved_${key}`) || '[]');
+                    occupiedTimes = [...new Set([...occupiedTimes, ...localOccupied])];
                 }
             } else {
                 // 3. LOCALSTORAGE (Si Firebase FALLA O NO ESTÁ LISTO)
@@ -724,10 +718,9 @@
                      ¡ATENCIÓN! No quedan bloques disponibles en esta cancha para la fecha seleccionada.
                  </p>`;
             } else {
-                // Limpiar mensaje de carga después de cargar exitosamente
-                const initialMessageElement = document.getElementById('horario-message');
-                if (initialMessageElement && initialMessageElement.textContent.includes("Cargando disponibilidad...")) {
-                     initialMessageElement.textContent = "";
+                // Si hay slots, limpiamos el mensaje de "Cargando" si no hay una advertencia activa.
+                if (horarioMessage && !horarioMessage.textContent.includes("⚠️")) {
+                     horarioMessage.textContent = "";
                 }
             }
         }
@@ -867,6 +860,7 @@
             } else {
                 
                 let success = false;
+                let usedSharedDB = false;
 
                 if (isAuthReady) {
                     // INTENTAR GUARDAR EN FIRESTORE
@@ -877,17 +871,20 @@
                             lastUpdated: new Date()
                         }, { merge: true });
                         success = true;
+                        usedSharedDB = true;
                         console.log("Reserva guardada exitosamente en Firestore.");
                     } catch (error) {
                         console.error("Fallo al guardar en Firestore. Usando localStorage de respaldo.", error);
-                        // Fallback a LocalStorage
+                        // Fallback a LocalStorage si falla el guardado
                         const key = `${formData.cancha}-${formData.fecha}`;
                         const currentOccupied = JSON.parse(localStorage.getItem(`local_reserved_${key}`) || '[]');
                         const newOccupied = [...new Set([...currentOccupied, ...formData.horarios])];
                         localStorage.setItem(`local_reserved_${key}`, JSON.stringify(newOccupied));
                         success = true; 
                     }
-                } else {
+                } 
+                
+                if (!usedSharedDB) {
                     // GUARDAR SOLO EN LOCALSTORAGE (Modo sin conexión)
                     const key = `${formData.cancha}-${formData.fecha}`;
                     const currentOccupied = JSON.parse(localStorage.getItem(`local_reserved_${key}`) || '[]');
@@ -936,13 +933,21 @@ Adjunto el comprobante de la seña de ARS 10.000.`;
         });
         
         // --- INICIO DE LA APLICACIÓN ---
-        try {
-            setLogLevel('Debug');
-            authenticateAndInitialize(); 
-        } catch (error) {
-             console.error("Error al iniciar la aplicación:", error);
-             document.getElementById('horario-message').innerHTML = "❌ **Error al iniciar:** Verifique las configuraciones de la plataforma.";
-        }
+        window.onload = function() {
+            // 1. Inicializar la UI inmediatamente
+            const todayString = (new Date()).toISOString().split('T')[0];
+            fechaInput.value = todayString;
+            renderDaysSlider(todayString);
+            selectCancha('cancha1');
+
+            // 2. Intentar conectar la DB en segundo plano
+            try {
+                setLogLevel('Debug');
+                authenticateAndInitializeDB(); 
+            } catch (error) {
+                 console.error("Error al iniciar el proceso de DB:", error);
+            }
+        };
     </script>
 </body>
 </html>
