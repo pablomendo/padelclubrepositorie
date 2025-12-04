@@ -464,39 +464,58 @@
     <script type="module">
         // Importaciones de Firebase SDK (requeridas para la persistencia compartida)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // IMPORTANTE: Aseguramos la importación de signInWithCustomToken para la autenticación robusta
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, arrayUnion, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // Configuración de Firebase (Se asumen variables globales disponibles en el entorno)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
         let app, db, auth;
         let isAuthReady = false;
 
-        // Inicialización de Firebase
-        try {
-            setLogLevel('Debug');
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            
-            // Autenticación Anónima (Necesaria para leer/escribir en Firestore)
-            signInAnonymously(auth).then(() => {
+        // Función para manejar la autenticación e inicialización de la UI
+        async function authenticateAndInitialize() {
+            try {
+                // Inicialización de la base de datos y la autenticación
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // Autenticación Canvas-compatible: Usa token si está disponible, sino anónimo
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
                 isAuthReady = true;
-                // Re-renderizar con el DB listo (Llamada inicial a renderHorarios)
+                // Inicializar UI después de la autenticación exitosa
                 const todayString = (new Date()).toISOString().split('T')[0];
                 renderDaysSlider(todayString);
                 selectCancha('cancha1');
-            }).catch(error => {
-                console.error("Error al iniciar sesión anónimamente:", error);
-                document.getElementById('horario-message').textContent = "Error de conexión con la base de datos.";
-            });
+
+            } catch (error) {
+                console.error("Error al autenticar con Firebase:", error);
+                isAuthReady = false; // Asegura que no se intente acceder a la DB
+                document.getElementById('horario-message').innerHTML = "❌ **Error de conexión/autenticación.** No se pudo cargar la disponibilidad. Intente recargar la página.";
+            }
+        }
+        
+        // --- Ejecución de la Inicialización ---
+        try {
+            setLogLevel('Debug');
+            authenticateAndInitialize(); // Inicia el proceso asíncrono
 
         } catch (error) {
             console.error("Error al inicializar Firebase:", error);
+            document.getElementById('horario-message').innerHTML = "❌ **Error fatal** al inicializar la aplicación. Verifique la configuración.";
         }
+        // ----------------------------------------
+        
 
         const form = document.getElementById('reservationForm');
         const messageBox = document.getElementById('messageBox');
@@ -635,6 +654,7 @@
         // Función para generar y mostrar los horarios disponibles (AHORA CON FIREBASE)
         async function renderHorarios() {
             if (!isAuthReady) {
+                 // Mostrar estado de conexión si la autenticación no ha finalizado
                  document.getElementById('horario-message').textContent = "Conectando al servidor...";
                  return;
             }
@@ -726,7 +746,7 @@
                      ¡ATENCIÓN! No quedan bloques disponibles en esta cancha para la fecha seleccionada.
                  </p>`;
             } else if (availableSlots.length > 0) {
-                // Borrar mensaje de carga si hay slots
+                // Borrar mensaje de carga si hay slots y todo ha cargado correctamente
                 document.getElementById('horario-message').textContent = "";
             }
         }
@@ -921,15 +941,8 @@ Adjunto el comprobante de la seña de ARS 10.000.`;
             updatePaymentSummary(); // Reiniciar a 0 bloques
         });
 
-        // Llamada inicial solo para días y cancha. renderHorarios se llama después de Auth
-        window.onload = function() {
-            // Si la autenticación falla, renderDaysSlider y selectCancha no se habrán llamado
-            // Los llamamos aquí solo para cargar la interfaz en modo offline si es necesario,
-            // pero la lógica de horarios se ejecutará solo después de que isAuthReady sea true.
-            const todayString = (new Date()).toISOString().split('T')[0];
-            renderDaysSlider(todayString);
-            selectCancha('cancha1');
-        };
+        // Se eliminó el window.onload original ya que authenticateAndInitialize maneja la carga de la UI
+        // después de que la base de datos está lista.
     </script>
 </body>
 </html>
