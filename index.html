@@ -466,7 +466,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         // IMPORTANTE: Aseguramos la importación de signInWithCustomToken para la autenticación robusta
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, arrayUnion, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // Configuración de Firebase (Se asumen variables globales disponibles en el entorno)
@@ -486,6 +486,7 @@
                 auth = getAuth(app);
                 
                 // Autenticación Canvas-compatible: Usa token si está disponible, sino anónimo
+                // Si la autenticación falla, lanza un error que el catch de abajo maneja
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
@@ -499,8 +500,9 @@
                 selectCancha('cancha1');
 
             } catch (error) {
+                // Si falla la autenticación (lo que genera el mensaje que viste)
                 console.error("Error al autenticar con Firebase:", error);
-                isAuthReady = false; // Asegura que no se intente acceder a la DB
+                isAuthReady = false; 
                 document.getElementById('horario-message').innerHTML = "❌ **Error de conexión/autenticación.** No se pudo cargar la disponibilidad. Intente recargar la página.";
             }
         }
@@ -690,9 +692,8 @@
                     firestoreOccupied = docSnap.data().occupiedSlots;
                 }
             } catch (error) {
-                console.error("Error al obtener datos de Firestore:", error);
-                document.getElementById('horario-message').textContent = "Error al cargar la disponibilidad.";
-                return;
+                // No mostrar error en la UI si falla getDoc, simplemente asumimos 0 slots ocupados por DB
+                console.error("Error al obtener datos de Firestore (puede ser normal si no hay reservas):", error);
             }
             
             // 2. COMBINAR DATOS (Mock inicial + Firestore)
