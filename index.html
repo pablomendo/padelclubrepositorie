@@ -118,7 +118,7 @@
             width: 1rem;
             height: 1rem;
         }
-        /* Loader styles */
+        /* Loader styles (Se mantiene por si se necesita, pero no se usa en el flujo principal) */
         .loader {
             border: 4px solid #f3f3f3; /* Light grey */
             border-top: 4px solid #14B8A6; /* Accent color */
@@ -320,6 +320,7 @@
                         <!-- Grid de Horarios -->
                         <div id="horariosGrid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                             <div class="col-span-full text-center p-4">
+                                <!-- Mensaje de estado (se actualiza con JS) -->
                                 <p id="horario-message" class="text-gray-500 mt-2">Cargando disponibilidad...</p>
                             </div>
                         </div>
@@ -462,7 +463,6 @@
 
     <script type="module">
         // Importaciones de Firebase SDK (Solo para intentar la persistencia compartida)
-        // Se carga con 'try-catch' para que el fallo no bloquee la interfaz
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -506,6 +506,7 @@
         const getSlotsDocRef = (cancha, fecha) => {
             if (!db) return null;
             const docId = `${cancha}-${fecha}`;
+            // La colección es pública para que todos los usuarios autenticados puedan ver todas las reservas.
             return doc(db, `artifacts/${appId}/public/data/samaa_padel_slots`, docId);
         };
 
@@ -637,10 +638,13 @@
             selectedTimeSlots = [];
             updatePaymentSummary();
             
-            // Mostrar un mensaje inicial o spinner solo si la UI no está cargada
-            if (!horariosGrid.hasChildNodes() || horariosGrid.textContent.includes("Selecciona una cancha y una fecha")) {
-                 horariosGrid.innerHTML = `<div class="col-span-full text-center p-4"><p id="horario-message" class="text-gray-500 mt-2">Cargando disponibilidad...</p></div>`;
+            // Mostrar un mensaje inicial o spinner solo si la UI está vacía
+            if (horariosGrid.children.length === 0 || horariosGrid.textContent.includes("Selecciona una cancha y una fecha")) {
+                horariosGrid.innerHTML = `<div class="col-span-full text-center p-4">
+                    <p id="horario-message" class="text-gray-500 mt-2">Cargando disponibilidad...</p>
+                </div>`;
             }
+
 
             if (!cancha || !fecha) {
                 horariosGrid.innerHTML = `<p class="col-span-full text-center text-gray-500">Selecciona una cancha y una fecha.</p>`;
@@ -649,6 +653,8 @@
             
             const key = `${cancha}-${fecha}`;
             let occupiedTimes = mockAvailability[key] || []; // 1. MOCK DATA
+
+            let readSuccess = false;
 
             if (isAuthReady) {
                 // 2. FIRESTORE (Si está listo)
@@ -659,14 +665,14 @@
                     if (docSnap.exists() && docSnap.data().occupiedSlots) {
                         occupiedTimes = [...new Set([...occupiedTimes, ...docSnap.data().occupiedSlots])];
                     }
+                    readSuccess = true;
                 } catch (error) {
-                    console.error("Error al obtener datos de Firestore. Usando modo local completo.", error);
-                    // No cambiamos isAuthReady aquí, solo reportamos el error de lectura.
-                    // Fallback a LocalStorage para lectura.
-                    const localOccupied = JSON.parse(localStorage.getItem(`local_reserved_${key}`) || '[]');
-                    occupiedTimes = [...new Set([...occupiedTimes, ...localOccupied])];
+                    console.error("Error al obtener datos de Firestore. Fallback a modo local.", error);
+                    // Si falla la lectura, no cambiamos isAuthReady, simplemente caemos al fallback de localStorage.
                 }
-            } else {
+            }
+            
+            if (!readSuccess) {
                 // 3. LOCALSTORAGE (Si Firebase FALLA O NO ESTÁ LISTO)
                 const localOccupied = JSON.parse(localStorage.getItem(`local_reserved_${key}`) || '[]');
                 occupiedTimes = [...new Set([...occupiedTimes, ...localOccupied])];
@@ -718,7 +724,7 @@
                      ¡ATENCIÓN! No quedan bloques disponibles en esta cancha para la fecha seleccionada.
                  </p>`;
             } else {
-                // Si hay slots, limpiamos el mensaje de "Cargando" si no hay una advertencia activa.
+                // Limpiamos el mensaje de "Cargando" si no hay una advertencia de modo local.
                 if (horarioMessage && !horarioMessage.textContent.includes("⚠️")) {
                      horarioMessage.textContent = "";
                 }
