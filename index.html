@@ -53,11 +53,15 @@
             transform: translateY(-4px);
         }
         /* Estilos para el slot de tiempo seleccionado */
-        .time-slot input:checked + .slot-content {
+        .time-slot.selected {
             background-color: #14B8A6 !important; /* color-accent */
             border-color: #14B8A6 !important; /* color-accent */
             color: #111827 !important; /* color-primary-dark */
             font-weight: bold;
+        }
+        /* Oculta los checkboxes reales */
+        .time-slot input[type="checkbox"] {
+            display: none;
         }
         .slot-content {
              padding: 0.5rem;
@@ -147,8 +151,8 @@
         <!-- 1. SECCIÓN PRINCIPAL (HOME) -->
         <section id="hero-section" class="border-b-4 border-accent">
             <div id="hero-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <!-- Texto superior: ABIERTO DE LUNES A SÁBADOS • 10:00 A 23:00 HS (CORREGIDO) -->
-                <div class="bg-accent text-primary-dark text-xs font-bold px-3 py-1 rounded-full inline-block mb-4">ABIERTO DE LUNES A SÁBADOS • 10:00 A 23:00 HS</div>
+                <!-- Texto superior: ABIERTO DE LUNES A SÁBADOS • 10:00 A 00:00 HS (CORREGIDO) -->
+                <div class="bg-accent text-primary-dark text-xs font-bold px-3 py-1 rounded-full inline-block mb-4">ABIERTO DE LUNES A SÁBADOS • 10:00 A 00:00 HS</div>
 
                 <!-- Título: Viví la experiencia Samaa Padel Club (DIVIDIDO EN DOS LÍNEAS) -->
                 <h2 class="mt-2 text-5xl sm:text-7xl font-black text-white leading-none">
@@ -294,7 +298,8 @@
                     </div>
 
                     <!-- 3. HORARIOS DISPONIBLES Y FORMULARIO -->
-                    <h4 class="text-xl font-semibold text-white mb-4 text-center">Horarios Disponibles (Turnos de 1 hora)</h4>
+                    <!-- NOTA: El título se ajusta al nuevo formato de 30 minutos, y se permite seleccionar varios bloques. -->
+                    <h4 class="text-xl font-semibold text-white mb-4 text-center">Horarios Disponibles (Bloques de 30 min - Selecciona varios)</h4>
 
                     <form id="reservationForm" class="space-y-6">
 
@@ -309,7 +314,7 @@
                         <div class="flex justify-center flex-wrap gap-4 text-sm pt-4 border-t border-gray-700">
                             <div class="flex items-center space-x-1">
                                 <span class="w-3 h-3 rounded-full bg-secondary-dark border border-gray-500"></span>
-                                <span class="text-gray-400">Libre</span>
+                                <span class="text-gray-400">Libre (30 min)</span>
                             </div>
                             <div class="flex items-center space-x-1">
                                 <span class="w-3 h-3 rounded-full bg-primary-dark border border-gray-800"></span>
@@ -335,20 +340,30 @@
                                 class="w-full bg-primary-dark border border-gray-600 rounded-lg p-3 text-white focus:ring-accent focus:border-accent">
                         </div>
                         
-                        <!-- Aceptación de Pago -->
+                        <!-- Aceptación de Pago (Ahora ajusta el precio por la cantidad de bloques seleccionados) -->
+                        <div id="pagoSummary" class="bg-primary-dark p-4 rounded-lg border border-gray-700">
+                            <p class="text-sm font-semibold text-white mb-2">
+                                Bloques seleccionados: <span id="numBloques" class="text-accent font-bold">0</span>.
+                            </p>
+                            <p class="text-sm font-semibold text-white">
+                                Costo total (Simulación): <span id="costoTotal" class="text-accent font-bold">$0 ARS</span>. (Basado en $10.000 ARS por hora)
+                            </p>
+                        </div>
+                        
                         <div>
                             <div class="flex items-center">
                                 <input id="aceptarPago" type="checkbox" required
                                     class="h-5 w-5 text-accent rounded focus:ring-accent border-gray-600 bg-primary-dark">
                                 <label for="aceptarPago" class="ml-3 block text-sm font-medium text-gray-300">
-                                    Acepto pagar ARS 10.000 para confirmar mi reserva
+                                    Acepto pagar la seña de ARS 10.000 para confirmar mi reserva
                                 </label>
                             </div>
                         </div>
 
                         <!-- Botón de Envío -->
                         <button type="submit" id="submitButton"
-                            class="w-full bg-accent hover:bg-accent-hover text-primary-dark font-extrabold py-3 rounded-lg shadow-2xl transition duration-200 transform hover:scale-[1.01]">
+                            class="w-full bg-accent hover:bg-accent-hover text-primary-dark font-extrabold py-3 rounded-lg shadow-2xl transition duration-200 transform hover:scale-[1.01]"
+                            disabled>
                             PAGAR Y CONFIRMAR RESERVA
                         </button>
                     </form>
@@ -444,30 +459,29 @@
         const daysSlider = document.getElementById('days-slider');
         const canchaTabs = document.querySelectorAll('.cancha-tab');
         
-        // --- MANEJO DE SCROLL (SOLUCIÓN AL PROBLEMA DE NAVEGACIÓN) ---
+        // --- ESTADO GLOBAL PARA LA SELECCIÓN MÚLTIPLE ---
+        let selectedTimeSlots = []; // Almacena los strings de los horarios seleccionados ("10:00", "10:30", etc.)
+        const PRECIO_POR_HORA = 10000; // $10.000 ARS
+        
+        // --- MANEJO DE SCROLL ---
         function handleScrollLink(e) {
-            // Verifica si el enlace apunta a un anclaje interno (#)
             if (e.target.hash) {
                 const targetElement = document.querySelector(e.target.hash);
                 if (targetElement) {
                     e.preventDefault();
-                    // Desplazamiento suave al elemento de destino
                     targetElement.scrollIntoView({ behavior: 'smooth' });
                 }
             }
         }
         
-        // Aplica el manejador a todos los enlaces de navegación y el botón "Reservar Ahora"
         document.querySelectorAll('.nav-link, #reservar-ahora-btn').forEach(link => {
             link.addEventListener('click', handleScrollLink);
         });
-        // ------------------------------------------------------------------
+        // ------------------------
 
-        // Datos simulados de disponibilidad (en una app real, esto vendría del servidor)
-        // La clave es la cancha + fecha.
+        // Datos simulados de disponibilidad (Ahora en bloques de 30 minutos)
         const mockAvailability = {
-            // Ejemplo de disponibilidad (Horarios LIBRES)
-            // Horarios simulados de 10:00 a 23:00 hs (turnos de 30 minutos)
+            // Horarios simulados de 10:00 a 23:00 hs (bloques ocupados de 30 minutos)
             'cancha1-2025-12-02': ['17:00', '17:30', '21:00'], 
             'cancha2-2025-12-02': ['10:00', '10:30', '19:00', '22:00'],
             'cancha3-2025-12-02': ['10:30', '17:00', '20:00', '22:30'],
@@ -476,46 +490,85 @@
             'cancha3-2025-12-03': ['21:00', '21:30', '22:00', '22:30'],
         };
         
-        // Horarios base (desde las 10:00 hasta las 23:00, CON INTERVALOS DE 30 MINUTOS)
-        const allHours = [];
-        const startHour = 10;
-        const endHour = 23; // El último turno comienza a las 22:30 y termina a las 23:30 (1 hora de duración)
-
-        for (let h = startHour; h < endHour; h++) { 
-            // Turno en punto (ej: 10:00)
-            allHours.push(`${String(h).padStart(2, '0')}:00`);
-            // Turno a la media (ej: 10:30)
-            allHours.push(`${String(h).padStart(2, '0')}:30`);
+        // Genera todos los posibles inicios de turno de 30 minutos (10:00 a 23:30)
+        function generateAll30MinSlots() {
+            const slots = [];
+            const startHour = 10;
+            const endHour = 24; // Representa 00:00 (medianoche)
+            
+            // Recorremos desde las 10:00 hasta las 23:00
+            for (let h = startHour; h < endHour; h++) {
+                // Generamos en punto (ej: 10:00)
+                slots.push(`${String(h).padStart(2, '0')}:00`);
+                // Generamos a la media (ej: 10:30)
+                if (h < 23) { // Evitamos generar 23:30 si la hora límite fuera 23:00, pero como es 00:00, el último bloque inicia a 23:30
+                    slots.push(`${String(h).padStart(2, '0')}:30`);
+                }
+            }
+            
+            // Aseguramos que 23:30 se incluye ya que es el último inicio de reserva permitido
+            slots.push('23:30'); 
+            
+            return slots; 
         }
-        // Incluir el último posible turno que comienza a las 23:00 si el cierre es después (ej. 00:00)
-        // Como el cierre es a las 23:00, el último turno debe comenzar a las 22:00 (si es de 1 hora) o 22:30 (si es de 1 hora y cierran a 23:30).
-        // Si el turno es de 1 hora, el último debe ser el que empieza a las 22:00.
-        // Si el turno es de 30 min, el último debe ser el que empieza a las 22:30.
-        // MANTENEMOS la lógica de turnos de 1 HORA como en el código original, pero las opciones se muestran cada 30 minutos.
-        // La lista debe ser de inicios de turnos (1 hora de duración), disponibles cada 30 min.
 
-        // CORRECCIÓN LÓGICA: Generamos todos los horarios de inicio posibles cada 30 minutos, pero si un usuario selecciona uno, la hora siguiente también debe bloquearse si el turno es de 1 hora.
-        // Por simplicidad en la simulación, generaremos solo los turnos que inician en hora o media hora.
-        // El bucle de horas está bien para generar INICIOS de turno.
-        
+        const allHours30Min = generateAll30MinSlots();
+
+        // Función para actualizar el resumen de pago
+        function updatePaymentSummary() {
+            const numBlocks = selectedTimeSlots.length;
+            const costoTotal = (numBlocks / 2) * PRECIO_POR_HORA; // Cada 2 bloques de 30 min es 1 hora
+            
+            document.getElementById('numBloques').textContent = numBlocks;
+            document.getElementById('costoTotal').textContent = `$${costoTotal.toLocaleString('es-AR')} ARS`;
+
+            // Habilitar el botón de envío si hay al menos un bloque seleccionado
+            submitButton.disabled = numBlocks === 0;
+        }
+
+        // Función para manejar la selección/deselección de un slot
+        function handleSlotClick(e) {
+            const slotElement = e.currentTarget;
+            const time = slotElement.dataset.time;
+            
+            // Verificar si está ya seleccionado
+            const index = selectedTimeSlots.indexOf(time);
+            
+            if (index > -1) {
+                // Deseleccionar
+                selectedTimeSlots.splice(index, 1);
+                slotElement.classList.remove('selected');
+            } else {
+                // Seleccionar
+                selectedTimeSlots.push(time);
+                slotElement.classList.add('selected');
+                // Ordenar para una mejor visualización en el resumen
+                selectedTimeSlots.sort();
+            }
+
+            updatePaymentSummary();
+        }
+
         // Función para mostrar un mensaje de estado
         function showMessage(text, isSuccess) {
             messageText.textContent = text;
             messageBox.classList.remove('hidden', 'bg-red-900', 'bg-green-900', 'border-red-600', 'border-green-600');
             messageBox.classList.add(isSuccess ? 'bg-green-900' : 'bg-red-900', 'border', isSuccess ? 'border-green-600' : 'border-red-600');
             
-            // Ocultar después de 5 segundos
             setTimeout(() => {
                 messageBox.classList.add('hidden');
             }, 5000);
         }
 
-        // Función para generar y mostrar los horarios disponibles (diseño de bloques de 2 líneas)
+        // Función para generar y mostrar los horarios disponibles
         function renderHorarios() {
             const cancha = canchaSelect.value;
             const fecha = fechaInput.value;
             
-            // Si no hay cancha o fecha seleccionada, mostrar mensaje
+            // Limpiar selección previa al cambiar fecha/cancha
+            selectedTimeSlots = [];
+            updatePaymentSummary();
+
             if (!cancha || !fecha) {
                 horariosGrid.innerHTML = `<p class="col-span-full text-center text-gray-500">
                     Selecciona una cancha y una fecha para ver la disponibilidad.
@@ -523,39 +576,18 @@
                 return;
             }
             
-            // Deseleccionar cualquier horario previamente seleccionado
-            try {
-                document.querySelectorAll('input[name="horario"]').forEach(radio => radio.checked = false);
-            } catch (e) {
-                // console.error(e); 
-            }
-
             const key = `${cancha}-${fecha}`;
-            // Filtramos allHours para ver cuáles están libres en mockAvailability (simulación)
-            const availableTimes = mockAvailability[key] || allHours; 
+            // Simulamos que la disponibilidad está en la lista de mockAvailability (los bloques ocupados)
+            const occupiedTimes = mockAvailability[key] || []; 
             
             let html = '';
-
-            // Regenerar allHours con el nuevo intervalo de 30 minutos
-            const allHours30Min = [];
-            for (let h = 10; h < 22; h++) { // Inicia a las 10:00, el último turno de 1 hora empieza a las 22:00.
-                allHours30Min.push(`${String(h).padStart(2, '0')}:00`);
-                allHours30Min.push(`${String(h).padStart(2, '0')}:30`);
-            }
-            // Agregamos el último turno de las 22:00 (termina a las 23:00)
-            allHours30Min.push('22:00');
-
+            
             allHours30Min.forEach(time => {
-                // Si la hora actual de allHours30Min está en la lista de mockAvailability, se considera disponible.
-                const isAvailable = availableTimes.includes(time);
+                // Si la hora está en la lista de mockAvailability, se considera ocupada (isAvailable = false).
+                const isAvailable = !occupiedTimes.includes(time);
                 
                 let containerClasses;
-                let inputDisabled = isAvailable ? '' : 'disabled';
-                
-                // Calculamos el final del turno de 1 hora
-                let [hour, minute] = time.split(':').map(Number);
-                hour += 1;
-                let endTime = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+                let disabledAttr = isAvailable ? '' : 'disabled';
                 
                 let statusText = isAvailable ? 'Libre' : 'Ocupado';
                 let timeColor;
@@ -572,49 +604,47 @@
                     timeColor = 'text-gray-500';
                     statusColor = 'text-gray-600';
                 }
-
+                
+                // Usamos un div como slot, no un label, y manejamos la selección con la clase 'selected'
                 html += `
-                    <label class="time-slot block">
-                        <input type="radio" name="horario" value="${time}" class="hidden" ${inputDisabled}>
-                        <span class="slot-content ${containerClasses} rounded-lg transition duration-150 ease-in-out">
+                    <div class="time-slot block rounded-lg transition duration-150 ease-in-out ${containerClasses} ${disabledAttr}" data-time="${time}">
+                        <span class="slot-content">
                             <span class="text-xl font-bold ${timeColor} block">${time}</span>
                             <span class="text-xs ${statusColor} block">${statusText}</span>
                         </span>
-                    </label>
+                    </div>
                 `;
             });
-            
-            // Si no hay turnos disponibles para el día, mostrar un mensaje de horario completo
-             if (allHours30Min.length > 0 && horariosGrid.innerHTML === '') {
-                 // Si la cuadrícula está vacía después del render, significa que no hay horarios. 
-                 // Aunque esto es poco probable con la simulación, es bueno tener el fallback.
-                 if (document.querySelector('input[name="horario"]:not([disabled])') === null) {
-                    horariosGrid.innerHTML = `<p class="col-span-full text-center text-red-400 font-semibold p-4 bg-primary-dark rounded-lg">
-                        ¡ATENCIÓN! No quedan turnos disponibles en esta cancha para la fecha seleccionada.
-                    </p>`;
-                 }
-            }
-
 
             horariosGrid.innerHTML = html;
+            
+            // Adjuntar listener de click a los nuevos slots disponibles
+            document.querySelectorAll('.time-slot:not([disabled])').forEach(slot => {
+                slot.addEventListener('click', handleSlotClick);
+            });
+            
+            // Si no hay turnos disponibles para el día, mostrar mensaje de ocupado
+            if (document.querySelectorAll('.time-slot:not([disabled])').length === 0 && allHours30Min.length > 0) {
+                 horariosGrid.innerHTML = `<p class="col-span-full text-center text-red-400 font-semibold p-4 bg-primary-dark rounded-lg">
+                     ¡ATENCIÓN! No quedan bloques disponibles en esta cancha para la fecha seleccionada.
+                 </p>`;
+            }
         }
         
         // --- Funciones para el Slider de Días ---
 
-        // Helper para obtener el nombre del día
         function getDayName(date, index) {
             const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
             if (index === 0) return 'HOY';
             return days[date.getDay()];
         }
         
-        // Renderiza los próximos 15 días (CORREGIDO)
         function renderDaysSlider(selectedDateString) {
-            daysSlider.innerHTML = ''; // Limpiar
+            daysSlider.innerHTML = ''; 
             const today = new Date();
             let selectedDateFound = false;
 
-            for (let i = 0; i < 15; i++) { // MUESTRA 15 DÍAS
+            for (let i = 0; i < 15; i++) { 
                 const day = new Date(today);
                 day.setDate(today.getDate() + i);
                 
@@ -626,11 +656,10 @@
                 
                 let dayClass = 'text-white bg-primary-dark hover:bg-gray-700';
                 
-                // Estilos para HOY y Selección (similar a la imagen)
                 if (i === 0) {
                     dayClass = 'text-primary-dark bg-accent font-bold shadow-lg';
                 } else if (isSelected) {
-                    dayClass = 'text-white bg-gray-600 border border-accent'; // Seleccionado pero no HOY
+                    dayClass = 'text-white bg-gray-600 border border-accent'; 
                 }
 
                 const dayElement = document.createElement('div');
@@ -649,30 +678,26 @@
                 if (isSelected) selectedDateFound = true;
             }
 
-            // Si la fecha seleccionada inicial no fue renderizada, seleccionar el día 0
             if (!selectedDateFound) {
                  selectDay(today.toISOString().split('T')[0]);
             }
         }
 
-        // Selecciona un día, actualiza el input oculto y vuelve a renderizar
         function selectDay(dateString) {
             fechaInput.value = dateString;
             
-            // Remover la clase de selección de todos los días y aplicar estilos base
             document.querySelectorAll('#days-slider > div').forEach(div => {
                 const dayIndex = parseInt(div.dataset.index);
                 div.classList.remove('bg-gray-600', 'border', 'border-accent');
                 if (dayIndex === 0) {
                      div.classList.add('text-primary-dark', 'bg-accent');
-                     div.classList.remove('text-white', 'bg-primary-dark'); // Limpiar estilos alternativos
+                     div.classList.remove('text-white', 'bg-primary-dark');
                 } else {
                      div.classList.add('bg-primary-dark', 'text-white');
-                     div.classList.remove('text-primary-dark', 'bg-accent'); // Limpiar estilos alternativos
+                     div.classList.remove('text-primary-dark', 'bg-accent');
                 }
             });
 
-            // Aplicar clase de selección al día clickeado
             const selectedDiv = document.querySelector(`[data-date="${dateString}"]`);
             if (selectedDiv && selectedDiv.dataset.index !== '0') {
                  selectedDiv.classList.remove('bg-primary-dark');
@@ -683,13 +708,10 @@
         }
 
         // --- Lógica de Eventos y Manejo de Canchas ---
-
-        // Cambiar la cancha seleccionada
         function selectCancha(selectedCancha) {
             canchaTabs.forEach(tab => {
                 const isSelected = tab.dataset.cancha === selectedCancha;
                 
-                // Alternar estilos visuales
                 if (isSelected) {
                     tab.classList.add('bg-accent', 'text-primary-dark');
                     tab.classList.remove('text-gray-400', 'hover:bg-gray-700');
@@ -698,17 +720,14 @@
                     tab.classList.add('text-gray-400', 'hover:bg-gray-700');
                 }
 
-                // Sincronizar con el <select> oculto
                 if (isSelected) {
                     canchaSelect.value = selectedCancha;
                 }
             });
             
-            // Recargar horarios con la nueva cancha
             renderHorarios();
         }
 
-        // Escuchadores de pestañas de cancha
         canchaTabs.forEach(tab => {
             tab.addEventListener('click', (e) => selectCancha(e.currentTarget.dataset.cancha));
         });
@@ -717,37 +736,47 @@
         form.addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // Deshabilitar botón para evitar doble envío
+            if (selectedTimeSlots.length === 0) {
+                showMessage('Error: Debes seleccionar al menos un bloque de 30 minutos.', false);
+                return;
+            }
+
             submitButton.disabled = true;
             submitButton.textContent = 'Procesando...';
             submitButton.classList.remove('bg-accent', 'hover:bg-accent-hover');
             submitButton.classList.add('bg-gray-600', 'cursor-not-allowed');
 
             const isPaymentAccepted = document.getElementById('aceptarPago').checked;
-            const selectedHorario = form.elements['horario'].value; 
 
             const formData = {
                 fecha: fechaInput.value,
                 cancha: canchaSelect.value,
-                horario: selectedHorario, 
+                horarios: selectedTimeSlots, 
                 nombre: document.getElementById('nombre').value,
                 whatsapp: document.getElementById('whatsapp').value,
                 pagoAceptado: isPaymentAccepted 
             };
+            
+            const totalCosto = (selectedTimeSlots.length / 2) * PRECIO_POR_HORA;
+
 
             setTimeout(() => {
-                // Validación: verificar que todos los campos y la aceptación de pago estén completos
-                if (!formData.fecha || !formData.cancha || !formData.horario || !formData.nombre || !formData.whatsapp) {
-                    showMessage('Error: Por favor, selecciona un horario y completa todos los campos.', false);
+                // Validación de campos
+                if (!formData.fecha || !formData.cancha || !formData.nombre || !formData.whatsapp) {
+                    showMessage('Error: Por favor, completa todos los campos requeridos.', false);
                 } else if (!formData.pagoAceptado) {
-                    showMessage('Error: Debes aceptar el pago de ARS 10.000 para confirmar la reserva.', false);
+                    showMessage('Error: Debes aceptar la seña de ARS 10.000 para confirmar la reserva.', false);
                 } else {
-                    // Simulación de éxito (asumiendo que el pago se realizó con éxito)
-                    const successMessage = `¡Pago y Reserva confirmados, ${formData.nombre}! \nCosto: ARS 10.000. Cancha: ${formData.cancha} - Fecha: ${formData.fecha} - Hora: ${formData.horario} hs. Te enviaremos un WhatsApp a ${formData.whatsapp} con el comprobante.`;
-                    showMessage(successMessage, true);
-                    form.reset(); // Limpiar formulario tras éxito
+                    // Simulación de éxito
+                    const sortedSlots = formData.horarios.sort();
+                    const slotsList = sortedSlots.join(', ');
                     
-                    // Asegurar que se vuelve a cargar la disponibilidad
+                    const successMessage = `¡Reserva confirmada, ${formData.nombre}! \nTotal Bloques: ${formData.horarios.length} (Costo simulado: $${totalCosto.toLocaleString('es-AR')} ARS). Cancha: ${formData.cancha} - Fecha: ${formData.fecha} - Horarios: ${slotsList} hs. Te enviaremos un WhatsApp a ${formData.whatsapp} con el comprobante.`;
+                    
+                    showMessage(successMessage, true);
+                    form.reset(); 
+                    
+                    // Forzamos la recarga de horarios para simular que los slots seleccionados ahora están ocupados
                     renderHorarios();
                 }
 
@@ -756,20 +785,16 @@
                 submitButton.textContent = 'PAGAR Y CONFIRMAR RESERVA';
                 submitButton.classList.remove('bg-gray-600', 'cursor-not-allowed');
                 submitButton.classList.add('bg-accent', 'hover:bg-accent-hover');
-
-            }, 1500); // 1.5 segundos de simulación de carga
+                updatePaymentSummary(); // Reiniciar a 0 bloques
+            }, 1500);
         });
 
         // Inicialización al cargar la ventana
         window.onload = function() {
-            // Establecer la fecha de hoy por defecto
             const todayString = (new Date()).toISOString().split('T')[0];
             fechaInput.value = todayString;
 
-            // 1. Renderizar el slider de días y seleccionar el día de hoy
             renderDaysSlider(todayString);
-            
-            // 2. Seleccionar la cancha inicial y cargar los horarios
             selectCancha('cancha1');
         };
     </script>
