@@ -461,27 +461,24 @@
         </div>
     </main>
 
-    <script type="module">
-        // Importaciones de Firebase SDK (Solo para intentar la persistencia compartida)
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <script>
+        // --- CONFIGURACIÓN DE JSONBIN (CLAVES INYECTADAS) ---
+        // ID DEL BIN: 6933145eae596e708f85d5b1 (Nuevo ID proporcionado)
+        const JSONBIN_ID = "6933145eae596e708f85d5b1"; 
+        // MASTER KEY (SECRETA)
+        const JSONBIN_MASTER_KEY = "$2a$10$vylyGYy0xVB/i7WMTSLRqOTNc0U1E.eX7KgXBImjVbZiBhdbH8zb6"; 
+        // URL base de la API de JSONBin
+        const JSONBIN_API_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_ID}`;
         
-        // --- VARIABLES DE ENTORNO ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
-        let app, db, auth;
-        let isAuthReady = false; // Estado para saber si la conexión a Firebase es exitosa
-        
+        let isSharedDataEnabled = false; // Estado para saber si JSONBin está funcionando
+
         // --- CONSTANTES DE LA APLICACIÓN ---
         let selectedTimeSlots = []; 
         const PRECIO_POR_HORA = 10000; 
         const CLUB_WHATSAPP_NUMBER = "5491140798131"; 
 
         // Datos simulados de disponibilidad (Bloques ocupados por defecto)
+        // ESTA DATA SE MEZCLARÁ CON LA DATA CARGADA DE JSONBIN
         const mockAvailability = {
             'cancha1-2025-12-02': ['17:00', '17:30', '21:00'], 
             'cancha2-2025-12-02': ['10:00', '10:30', '19:00', '22:00'],
@@ -502,43 +499,61 @@
         const canchaTabs = document.querySelectorAll('.cancha-tab');
         const horarioMessage = document.getElementById('horario-message'); // Mensaje en la grilla
 
-        // --- FIREBASE FIRESTORE CONFIG ---
-        const getSlotsDocRef = (cancha, fecha) => {
-            if (!db) return null;
-            const docId = `${cancha}-${fecha}`;
-            // La colección es pública para que todos los usuarios autenticados puedan ver todas las reservas.
-            return doc(db, `artifacts/${appId}/public/data/samaa_padel_slots`, docId);
-        };
+        // --- FUNCIONES CORE DE JSONBIN ---
+        
+        // Carga el estado completo de las reservas desde JSONBin
+        async function loadSharedReservations() {
+            
+            const response = await fetch(JSONBIN_API_URL, {
+                method: 'GET',
+                headers: {
+                    'X-Master-Key': JSONBIN_MASTER_KEY,
+                },
+            });
 
-        // --- FUNCIÓN DE AUTENTICACIÓN (EN SEGUNDO PLANO) ---
-        async function authenticateAndInitializeDB() {
+            if (!response.ok) {
+                // Esto capturará el error si el JSONBin está vacío o mal formateado.
+                throw new Error(`JSONBin: Error al leer datos (${response.status}) o el Bin está vacío/corrupto.`);
+            }
+            const data = await response.json();
+            // JSONBin devuelve { record: { ...datos... } }
+            // Si el record es nulo o inválido, devuelve un objeto vacío para evitar fallos.
+            return data.record && typeof data.record === 'object' ? data.record : {};
+        }
+
+        // Guarda el estado completo de las reservas en JSONBin
+        async function saveSharedReservations(updatedData) {
+            if (!isSharedDataEnabled) {
+                console.error("JSONBin no está habilitado. No se pudo guardar la data compartida.");
+                return false;
+            }
+
+            const response = await fetch(JSONBIN_API_URL, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': JSONBIN_MASTER_KEY,
+                },
+                body: JSON.stringify(updatedData),
+            });
+
+            return response.ok;
+        }
+
+        // --- FUNCIÓN DE INICIALIZACIÓN (EN SEGUNDO PLANO) ---
+        async function initializeSharedData() {
             try {
-                // Validación estricta de configuración
-                if (!firebaseConfig || !firebaseConfig.apiKey || Object.keys(firebaseConfig).length === 0) {
-                    throw new Error("Missing/Invalid Firebase configuration. Running in local mode.");
-                }
-                
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                
-                // Intento de autenticación (usa token si existe, sino anónimo)
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                
-                isAuthReady = true;
-                console.log("Firebase conectado y autenticado. Persistencia compartida ACTIVA.");
+                // Solo probamos a leer para confirmar la conexión
+                await loadSharedReservations(); 
+                isSharedDataEnabled = true;
+                console.log("JSONBin conectado. Persistencia compartida ACTIVA.");
                 
                 // Si la conexión es exitosa, disparamos una recarga de horarios para cargar la data compartida.
                 renderHorarios();
 
             } catch (error) {
-                // Si la conexión falla (incluyendo el error de projectId), la app sigue funcionando en modo local.
-                console.error("Firebase falló. Persistencia compartida INACTIVA. Usando localStorage.", error);
-                isAuthReady = false; 
+                console.error("JSONBin falló. Persistencia compartida INACTIVA. Usando localStorage.", error);
+                isSharedDataEnabled = false; 
                 if (horarioMessage) {
                     horarioMessage.innerHTML = "⚠️ **Modo Local:** No se pudo conectar a la base de datos compartida. Las reservas no serán visibles para otros usuarios.";
                     horarioMessage.classList.remove('text-gray-500');
@@ -629,7 +644,7 @@
             }, 5000);
         }
 
-        // --- FUNCIÓN PRINCIPAL DE RENDERIZADO (HÍBRIDO) ---
+        // --- FUNCIÓN PRINCIPAL DE RENDERIZADO (HÍBRIDO con JSONBin) ---
         async function renderHorarios() {
             
             const cancha = canchaSelect.value;
@@ -638,12 +653,13 @@
             selectedTimeSlots = [];
             updatePaymentSummary();
             
-            // Mostrar un mensaje inicial o spinner solo si la UI está vacía
-            if (horariosGrid.children.length === 0 || horariosGrid.textContent.includes("Selecciona una cancha y una fecha")) {
-                horariosGrid.innerHTML = `<div class="col-span-full text-center p-4">
-                    <p id="horario-message" class="text-gray-500 mt-2">Cargando disponibilidad...</p>
-                </div>`;
+            // Mostrar mensaje de carga si no hay advertencia activa
+            if (!horarioMessage.textContent.includes("⚠️")) {
+                horarioMessage.textContent = "Cargando disponibilidad...";
             }
+            horariosGrid.innerHTML = `<div class="col-span-full text-center p-4">
+                <p id="horario-message" class="text-gray-500 mt-2">${horarioMessage.textContent}</p>
+            </div>`;
 
 
             if (!cancha || !fecha) {
@@ -652,28 +668,27 @@
             }
             
             const key = `${cancha}-${fecha}`;
-            let occupiedTimes = mockAvailability[key] || []; // 1. MOCK DATA
+            let occupiedTimes = mockAvailability[key] || []; // 1. MOCK DATA BASE
 
             let readSuccess = false;
 
-            if (isAuthReady) {
-                // 2. FIRESTORE (Si está listo)
+            if (isSharedDataEnabled) {
+                // 2. JSONBin (Si está listo)
                 try {
-                    const docRef = getSlotsDocRef(cancha, fecha);
-                    const docSnap = await getDoc(docRef);
-
-                    if (docSnap.exists() && docSnap.data().occupiedSlots) {
-                        occupiedTimes = [...new Set([...occupiedTimes, ...docSnap.data().occupiedSlots])];
-                    }
+                    const allReservations = await loadSharedReservations();
+                    // Aseguramos que allReservations sea un objeto para evitar fallos.
+                    const slotsForDay = (allReservations && typeof allReservations === 'object' && allReservations[key]) || [];
+                    // Combinamos las reservas simuladas y las cargadas de JSONBin
+                    occupiedTimes = [...new Set([...occupiedTimes, ...slotsForDay])];
                     readSuccess = true;
                 } catch (error) {
-                    console.error("Error al obtener datos de Firestore. Fallback a modo local.", error);
-                    // Si falla la lectura, no cambiamos isAuthReady, simplemente caemos al fallback de localStorage.
+                    console.error("Error al obtener datos de JSONBin. Fallback a modo local.", error);
+                    // Si falla la lectura de JSONBin, caemos al fallback de localStorage.
                 }
             }
             
             if (!readSuccess) {
-                // 3. LOCALSTORAGE (Si Firebase FALLA O NO ESTÁ LISTO)
+                // 3. LOCALSTORAGE (Si JSONBin falló la lectura)
                 const localOccupied = JSON.parse(localStorage.getItem(`local_reserved_${key}`) || '[]');
                 occupiedTimes = [...new Set([...occupiedTimes, ...localOccupied])];
             }
@@ -831,7 +846,7 @@
             tab.addEventListener('click', (e) => selectCancha(e.currentTarget.dataset.cancha));
         });
 
-        // --- MANEJO DE ENVÍO DE FORMULARIO (HÍBRIDO) ---
+        // --- MANEJO DE ENVÍO DE FORMULARIO (JSONBin) ---
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
 
@@ -866,33 +881,39 @@
             } else {
                 
                 let success = false;
-                let usedSharedDB = false;
+                const key = `${formData.cancha}-${formData.fecha}`;
+                let attemptedSharedSave = false;
 
-                if (isAuthReady) {
-                    // INTENTAR GUARDAR EN FIRESTORE
+                if (isSharedDataEnabled) {
+                    attemptedSharedSave = true;
+                    // INTENTAR GUARDAR EN JSONBIN
                     try {
-                        const docRef = getSlotsDocRef(formData.cancha, formData.fecha);
-                        await setDoc(docRef, { 
-                            occupiedSlots: arrayUnion(...formData.horarios),
-                            lastUpdated: new Date()
-                        }, { merge: true });
-                        success = true;
-                        usedSharedDB = true;
-                        console.log("Reserva guardada exitosamente en Firestore.");
+                        // 1. Obtener la data actual
+                        const allReservations = await loadSharedReservations();
+                        // 2. Combinar slots nuevos con existentes
+                        const currentSlots = allReservations[key] || [];
+                        const newOccupied = [...new Set([...currentSlots, ...formData.horarios])];
+                        // 3. Actualizar la data completa
+                        allReservations[key] = newOccupied;
+                        
+                        success = await saveSharedReservations(allReservations);
+
+                        if (success) {
+                            console.log("Reserva guardada exitosamente en JSONBin.");
+                        } else {
+                             console.error("Fallo al guardar en JSONBin.");
+                        }
+
                     } catch (error) {
-                        console.error("Fallo al guardar en Firestore. Usando localStorage de respaldo.", error);
-                        // Fallback a LocalStorage si falla el guardado
-                        const key = `${formData.cancha}-${formData.fecha}`;
-                        const currentOccupied = JSON.parse(localStorage.getItem(`local_reserved_${key}`) || '[]');
-                        const newOccupied = [...new Set([...currentOccupied, ...formData.horarios])];
-                        localStorage.setItem(`local_reserved_${key}`, JSON.stringify(newOccupied));
-                        success = true; 
+                        console.error("Fallo crítico en JSONBin al guardar.", error);
                     }
                 } 
                 
-                if (!usedSharedDB) {
-                    // GUARDAR SOLO EN LOCALSTORAGE (Modo sin conexión)
-                    const key = `${formData.cancha}-${formData.fecha}`;
+                if (!success) {
+                    // FALLBACK: GUARDAR EN LOCALSTORAGE (si SharedDB no se intentó o falló)
+                    if (attemptedSharedSave) {
+                        console.log("Usando localStorage de respaldo.");
+                    }
                     const currentOccupied = JSON.parse(localStorage.getItem(`local_reserved_${key}`) || '[]');
                     const newOccupied = [...new Set([...currentOccupied, ...formData.horarios])];
                     localStorage.setItem(`local_reserved_${key}`, JSON.stringify(newOccupied));
@@ -947,12 +968,7 @@ Adjunto el comprobante de la seña de ARS 10.000.`;
             selectCancha('cancha1');
 
             // 2. Intentar conectar la DB en segundo plano
-            try {
-                setLogLevel('Debug');
-                authenticateAndInitializeDB(); 
-            } catch (error) {
-                 console.error("Error al iniciar el proceso de DB:", error);
-            }
+            initializeSharedData(); 
         };
     </script>
 </body>
